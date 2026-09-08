@@ -1,0 +1,14 @@
+# Credentials, local data and generated artifacts
+.env
+.env.*
+!.env.example
+secrets/
+data/
+backups/
+.cache/
+artifacts/
+*.pem
+*.key
+*.sqlite*
+__pycache__/
+.DS_Store

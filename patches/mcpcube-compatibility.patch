@@ -1,0 +1,30 @@
+--- a/mcpcube.php
++++ b/mcpcube.php
+@@ -4,7 +4,11 @@
+ 
+ // Needed for plugin-only installations; Roundcube's root autoloader already
+ // loads this when the plugin was installed with Composer.
+-@include_once __DIR__ . '/vendor/autoload.php';
++$pluginLoader = @include_once __DIR__ . '/vendor/autoload.php';
++if ($pluginLoader instanceof \Composer\Autoload\ClassLoader) {
++    $pluginLoader->unregister();
++    $pluginLoader->register(false);
++}
+ 
+ require_once __DIR__ . '/lib/mcpcube_crypto.php';
+ require_once __DIR__ . '/lib/mcpcube_mcp_protocol.php';
+--- a/lib/mcpcube_device_flow.php
++++ b/lib/mcpcube_device_flow.php
+@@ -348,6 +348,12 @@
+             $tokenHash = mcpcube_crypto::hash_token($rawToken);
+             $ttl = max(60, (int) $rcmail->config->get('mcpcube_token_ttl', 30 * 86400));
+             $host = is_string($_SESSION['storage_host'] ?? null) ? $_SESSION['storage_host'] : null;
++            // Preserve Roundcube's TLS transport and port when reconnecting.
++            if ($host !== null) {
++                $port = (int) ($_SESSION['storage_port'] ?? 143);
++                $transport = (string) ($_SESSION['storage_ssl'] ?? '');
++                $host = ($transport !== '' ? $transport . '://' : '') . $host . ':' . $port;
++            }
+ 
+             $insertResult = $db->query(
+                 "INSERT INTO {$agentsTable} (`user_id`, `credential_key`, `token_hash`, `encrypted_password`,"

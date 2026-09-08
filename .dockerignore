@@ -1,0 +1,7 @@
+*
+!.cache/
+!.cache/mcpcube/
+!.cache/mcpcube/**
+!integrations/
+!integrations/mcpcube/
+!integrations/mcpcube/apache-routes.conf
