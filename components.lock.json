@@ -11,5 +11,17 @@
     "repository": "imrasalghul/mcpcube",
     "revision": "c34586985f626cbaa7bd4f37841933e401b2b54d",
     "license": "MIT"
+  },
+  "python": {
+    "image": "python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea"
+  },
+  "mailpit": {
+    "image": "axllent/mailpit@sha256:98b916bd3c8d61f7633a52d3ea2f58d00620cb01ca57ab59edde68c347a95365"
+  },
+  "nginx": {
+    "image": "nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236"
+  },
+  "cloudflared": {
+    "image": "cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339"
   }
 }

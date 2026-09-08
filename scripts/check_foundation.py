@@ -1,6 +1,9 @@
 """Validate the specification/build foundation. Not the future product test suite."""
-import json, re
+
+import json
+import re
 from pathlib import Path
+
 root = Path(__file__).resolve().parents[1]
 lock = json.loads((root / "components.lock.json").read_text())
 for name in ("stalwart", "roundcube"):

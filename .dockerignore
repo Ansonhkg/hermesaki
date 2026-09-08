@@ -5,3 +5,9 @@
 !integrations/
 !integrations/mcpcube/
 !integrations/mcpcube/apache-routes.conf
+
+!src/
+!src/**
+!requirements.txt
+!tests/
+!tests/**

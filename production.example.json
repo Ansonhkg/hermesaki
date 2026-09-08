@@ -1,0 +1,11 @@
+{
+  "mode": "production",
+  "domain": "your-domain.example",
+  "public_url": "https://agentmail.your-domain.example",
+  "management_url": "https://mail.your-domain.example:443",
+  "access_team": "your-team",
+  "access_aud": "YOUR_API_ACCESS_APPLICATION_AUDIENCE",
+  "webhook_hosts": [],
+  "workflow": true,
+  "mail_host": "mail.your-domain.example"
+}

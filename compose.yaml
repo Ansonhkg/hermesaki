@@ -1,0 +1,62 @@
+name: hermesaki
+services:
+  mail:
+    image: stalwartlabs/stalwart@sha256:0bb2e1fa01ce8dfc8d8dc1006ed11bd7359be6144fd0f8a950b0c7bf5e9a9b6c
+    env_file: .runtime/bootstrap.env
+    volumes:
+      - ./.runtime/mail-etc:/etc/stalwart
+      - ./.runtime/mail-data:/var/lib/stalwart
+    networks: [private]
+    restart: unless-stopped
+  capture:
+    image: axllent/mailpit@sha256:98b916bd3c8d61f7633a52d3ea2f58d00620cb01ca57ab59edde68c347a95365
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_DISABLE_RDNS: 'true'
+    volumes: [./.runtime/capture:/data]
+    networks: [private]
+  api:
+    build: {context: ., dockerfile: docker/api/Dockerfile}
+    image: hermesaki-api:dev
+    volumes: [./.runtime/product:/state]
+    networks: [private]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  receiver:
+    image: hermesaki-api:dev
+    command: [python, -m, hermesaki.receiver]
+    volumes: [./.runtime/product/receiver:/receiver]
+    networks: [private]
+  worker:
+    image: hermesaki-api:dev
+    command: [python, -m, hermesaki.worker]
+    volumes: [./.runtime/product:/state]
+    networks: [private]
+    restart: unless-stopped
+  webmail:
+    image: hermesaki-roundcube:dev
+    build: {context: ., dockerfile: docker/roundcube/Dockerfile}
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://mail
+      ROUNDCUBEMAIL_SMTP_PORT: 465
+      ROUNDCUBEMAIL_PLUGINS: archive,zipdownload
+      ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: 5M
+    volumes:
+      - ./.runtime/roundcube:/var/roundcube/db
+      - ./.runtime/product/tls/ca.pem:/etc/hermesaki/ca.pem:ro
+      - ./docker/roundcube/local.inc.php:/var/roundcube/config/local.inc.php:ro
+    networks: [private]
+  edge:
+    image: nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    ports: ['127.0.0.1:19100:8000', '127.0.0.1:19180:8080', '127.0.0.1:19125:8025']
+    volumes: [./docker/edge.conf:/etc/nginx/conf.d/default.conf:ro]
+    networks: [private,edge]
+    depends_on: [api,webmail,capture]
+networks:
+  private: {internal: true}
+  edge: {}

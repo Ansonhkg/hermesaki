@@ -1,0 +1,48 @@
+# Standalone file, never merged with compose.yaml. No published HTTP ports.
+name: hermesaki
+services:
+  mail:
+    image: stalwartlabs/stalwart@sha256:0bb2e1fa01ce8dfc8d8dc1006ed11bd7359be6144fd0f8a950b0c7bf5e9a9b6c
+    ports: ['25:25']
+    volumes: [./.runtime/mail-etc:/etc/stalwart, ./.runtime/mail-data:/var/lib/stalwart]
+    networks:
+      private:
+        aliases: [${HERMESAKI_MAIL_HOST:?Run scripts/provision.py first}]
+      delivery: {}
+    restart: unless-stopped
+  api:
+    image: hermesaki-api:dev
+    build: {context: ., dockerfile: docker/api/Dockerfile}
+    volumes: [./.runtime/product:/state]
+    networks: [private,delivery]
+    restart: unless-stopped
+  worker:
+    image: hermesaki-api:dev
+    command: [python, -m, hermesaki.worker]
+    volumes: [./.runtime/product:/state]
+    networks: [private,delivery]
+    restart: unless-stopped
+  webmail:
+    image: hermesaki-roundcube:dev
+    build: {context: ., dockerfile: docker/roundcube/Dockerfile}
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://${HERMESAKI_MAIL_HOST}
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://${HERMESAKI_MAIL_HOST}
+      ROUNDCUBEMAIL_SMTP_PORT: 465
+      ROUNDCUBEMAIL_PLUGINS: archive,zipdownload
+    volumes:
+      - ./.runtime/roundcube:/var/roundcube/db
+      - ./.runtime/product/tls/ca.pem:/etc/hermesaki/ca.pem:ro
+      - ./docker/roundcube/local.inc.php:/var/roundcube/config/local.inc.php:ro
+    networks: [private]
+    restart: unless-stopped
+  tunnel:
+    image: cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel]
+    volumes: [./.runtime/tunnel-token:/run/secrets/tunnel:ro]
+    networks: [private,delivery]
+    restart: unless-stopped
+networks:
+  private: {internal: true}
+  delivery: {}

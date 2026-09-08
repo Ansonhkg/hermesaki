@@ -12,3 +12,12 @@ artifacts/
 *.sqlite*
 __pycache__/
 .DS_Store
+
+.runtime/
+.venv/
+
+.runtime*/
+
+*.hmb
+
+.ruff_cache/

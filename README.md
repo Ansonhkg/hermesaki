@@ -1,36 +1,43 @@
 # Hermesaki
 
-A reusable, self-hosted email product for people and agents.
+Self-hosted email for people and agents. Stalwart stores and delivers mail, Roundcube provides the browser inbox, and Hermesaki adds a scoped API, MCP, durable sends, webhooks and an operator view.
 
-Run the same mail server, browser inbox, API and MCP integration locally and in production. Simulate external delivery and failures locally, then turn sanitized production incidents into regression fixtures.
+## Run locally
 
-## Status
-
-This repository is the implementation specification and the preserved starting point from a working deployment. It is **not yet a complete, one-command email product**.
-
-The source deployment verified SMTP sending and receiving, Roundcube login, Cloudflare Access, and read-only MCP access. Those results do not establish that a fresh Hermesaki deployment works. The clean-install and operational acceptance tests remain to be implemented.
-
-## Contents
-
-- [Acceptance criteria](docs/acceptance.md): release gates and required evidence.
-- [Architecture](docs/architecture.md): local and production boundaries.
-- [Implementation milestones](docs/milestones.md): ordered work toward the first release.
-- [Existing deployment evidence](docs/baseline.md): what was verified and what was not.
-- `components.lock.json`: exact mail-server and webmail image versions and MCP source revision.
-- `patches/`: two tested MCP compatibility fixes.
-- `integrations/mcpcube/`: resolved dependency lock and Apache routes.
-- `docker/roundcube/Dockerfile`: reproducible webmail/MCP image build recipe.
-
-## Local repository checks
-
-Requires Python 3.11+, Git, and the GitHub CLI (`gh`). Docker is needed for image builds.
+Requires Docker Compose, Python 3.12+, Git and authenticated `gh`. Tested on Apple Silicon with Docker Desktop. Linux staging verification is still pending.
 
 ```sh
-make test             # validate this repository's foundation, not product acceptance
-make prepare          # fetch pinned MCP source and apply the preserved fixes
-make build-roundcube  # build the pinned Roundcube + MCP image locally
+make dev          # build pinned images and provision the isolated stack
+make seed         # fictional Alice and Bob accounts, mail and attachments
+make test         # unit tests plus real mail/API/MCP/webmail integration
+make restore-test # restore a complete encrypted snapshot into another stack
 ```
 
-No CI or automatic deployment. Tests and deployment are operator-run commands. Future `make dev`, `make seed`, `make deploy`, `make backup`, and `make restore` targets are requirements, not implemented commands.
+| Open | Address |
+| --- | --- |
+| Browser inbox | http://localhost:19180 |
+| Operator and API | http://localhost:19100 |
+| Captured outbound mail | http://localhost:19125 |
+| MCP endpoint | http://localhost:19100/mcp |
 
-No live credentials, email bodies, private server addresses, or account identifiers belong in Git. Use fictional fixtures and deployment-specific secret files outside the repository. The repository is private; bundled upstream code retains its upstream license.
+`make credentials` displays the fictional webmail passwords locally. The operator token is in `.runtime/product/operator-token`; paste it into the operator page. Alice's development API token is in `.runtime/product/alice-token`. These files are ignored by Git. Development tokens expire after 30 days; mint replacements with the operator API.
+
+Local mail, API and workers have no external network route. Only the loopback web proxy has a bridge network. Mail addressed outside the local domain goes to Mailpit, including addresses that look real. Production uses a separate Compose file with explicit SMTP egress.
+
+## Use the API and MCP
+
+See [API and authentication](docs/api.md) for examples, mailbox tokens, idempotent sending, confirmation and client configuration. The product MCP endpoint shares the API authorization layer. The pinned MCPcube plugin and compatibility patch remain available in the webmail image, but the default product uses its own MCP endpoint.
+
+Messages and attachments stay in Stalwart. Queued message content and mailbox credentials are encrypted in SQLite. The operator view exposes delivery metadata, attempts and audit history without message bodies. Incoming mail creates a deterministic draft; it is never sent automatically.
+
+## Operate it
+
+- [Deployment](docs/deployment.md): separate staging setup, DNS, TLS and Cloudflare Access.
+- [Backup and upgrades](docs/operations.md): encrypted snapshots and non-destructive recovery.
+- [Events and simulation](docs/events.md): delivery semantics, signatures and local failure tests.
+- [Acceptance evidence](docs/evidence.md): passed checks and remaining release gates.
+- [Architecture](docs/architecture.md) and [acceptance criteria](docs/acceptance.md).
+
+The local product is implemented and exercised. A captured-mail staging deployment also runs on Linux behind Cloudflare Access. Public SMTP routing and a version-changing upgrade rehearsal remain release gates. Do not treat local tests as proof of public deliverability or Cloudflare policy correctness.
+
+No CI, automatic deployment, live credentials or real mailbox fixtures are included. Upstream components retain their licenses; image versions and source revisions are recorded in `components.lock.json`.
