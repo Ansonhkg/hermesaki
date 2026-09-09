@@ -1,5 +1,7 @@
 # Hermesaki
 
+![Hermesaki: Your mail. Your agents. Your server.](landing/assets/repo-thumbnail.png)
+
 Self-hosted email for people and agents. Stalwart stores and delivers mail, Roundcube provides the browser inbox, and Hermesaki adds a scoped API, MCP, durable sends, webhooks and an operator view.
 
 ## Run locally
@@ -41,3 +43,7 @@ Messages and attachments stay in Stalwart. Queued message content and mailbox cr
 The local product is implemented and exercised. A captured-mail staging deployment also runs on Linux behind Cloudflare Access. Public SMTP routing and a version-changing upgrade rehearsal remain release gates. Do not treat local tests as proof of public deliverability or Cloudflare policy correctness.
 
 No CI, automatic deployment, live credentials or real mailbox fixtures are included. Upstream components retain their licenses; image versions and source revisions are recorded in `components.lock.json`.
+
+## Landing page
+
+Run `make landing` and open http://localhost:19190. Includes an interactive workflow illustration, usage examples and the generated repository thumbnail. No mail is sent by the demo.

@@ -33,3 +33,7 @@ deploy: .venv/bin/python prepare
 	$(VENV) scripts/preflight.py
 	docker compose -f compose.production.yaml build
 	docker compose -f compose.production.yaml up -d
+
+.PHONY: landing
+landing:
+	$(PYTHON) -m http.server 19190 --bind 127.0.0.1 --directory landing
