@@ -1,6 +1,6 @@
 # Hermesaki
 
-![Hermesaki: Your mail. Your agents. Your server.](landing/assets/repo-thumbnail.png)
+![Hermesaki: Your mail. Your agents. Your server.](landing/assets/repo-thumbnail-creature-v2.png)
 
 Self-hosted email for people and agents. Stalwart stores and delivers mail, Roundcube provides the browser inbox, and Hermesaki adds a scoped API, MCP, durable sends, webhooks and an operator view.
 
@@ -46,4 +46,4 @@ No CI, automatic deployment, live credentials or real mailbox fixtures are inclu
 
 ## Landing page
 
-Run `make landing` and open http://localhost:19190. Includes an interactive workflow illustration, usage examples and the generated repository thumbnail. No mail is sent by the demo.
+Run `make landing` and open http://localhost:19190. A two-section page featuring the Hermesaki messenger, a short workflow and setup links.
