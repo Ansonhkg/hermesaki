@@ -195,6 +195,8 @@ class App:
                 },
                 e.get("HTTP_IDEMPOTENCY_KEY"),
             )
+        if p == ["v1", "inboxes", "import"] and method == "POST":
+            return s.import_inbox(a, d.get("email"), d.get("password"))
         if p == ["v1", "inboxes"] and method == "POST":
             return s.create_inbox(a, d["email"])
         if p == ["v1", "inboxes"] and method == "GET":

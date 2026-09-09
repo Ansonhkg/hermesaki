@@ -17,6 +17,14 @@ class Mail:
     def __init__(self, config, store):
         self.config, self.store = config, store
 
+    def verify_credentials(self, address, password):
+        try:
+            with imaplib.IMAP4_SSL(self.config.mail_host, self.config.mail_port,
+                                  ssl_context=self.tls(), timeout=15) as mailbox:
+                mailbox.login(address, password)
+        except (imaplib.IMAP4.error, OSError):
+            raise Problem(400, "mailbox_credentials_not_verified") from None
+
     def tls(self):
         return ssl.create_default_context(cafile=self.config.ca_file)
 

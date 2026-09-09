@@ -51,6 +51,29 @@ class Service:
         self.store.audit(actor["id"], "inbox.create", ident)
         return {"id": ident, "email": address}
 
+    def import_inbox(self, actor, address, password):
+        """Adopt an existing mailbox without changing its password or mail data."""
+        self.permit(actor, "admin")
+        if not isinstance(address, str) or not re.fullmatch(
+            r"[a-z0-9][a-z0-9._+-]{0,63}@" + re.escape(self.config.domain), address
+        ):
+            raise Problem(400, "invalid_address")
+        if not isinstance(password, str) or not 1 <= len(password) <= 1024:
+            raise Problem(400, "invalid_mailbox_credential")
+        # Verify before persisting or replacing a working credential.
+        self.mail.verify_credentials(address, password)
+        with self.store.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            existing = db.execute("SELECT id FROM inboxes WHERE email=?", (address,)).fetchone()
+            ident = existing["id"] if existing else secrets.token_hex(12)
+            secret = self.store.seal(password, ident)
+            if existing:
+                db.execute("UPDATE inboxes SET secret=?,active=1 WHERE id=?", (secret, ident))
+            else:
+                db.execute("INSERT INTO inboxes VALUES(?,?,?,1)", (ident, address, secret))
+        self.store.audit(actor["id"], "inbox.import", ident)
+        return {"id": ident, "email": address, "imported": True}
+
     def revoke(self, actor, ident):
         self.permit(actor, "admin")
         with self.store.db() as db:

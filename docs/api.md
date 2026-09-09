@@ -48,3 +48,7 @@ For a remote MCP client, select Streamable HTTP, use `/mcp`, and supply the bear
 The server is stateless MCP JSON-over-HTTP, protocol `2025-03-26`, with no server-initiated notifications. Tools include folder listing, search, reading, attachments, sending, replying and confirmed deletion. Unsupported methods fail explicitly. Mail text is untrusted data, not agent instructions.
 
 The latest-message API currently returns a bounded recent window, not an archive-wide cursor. Admin history is paginated. Use IMAP/Roundcube to browse older mailbox history.
+
+## Adopt an existing mailbox
+
+An operator can call `POST /v1/inboxes/import` with `email` and `password`. The service verifies the existing mailbox through TLS-protected IMAP before saving its credential encrypted. It does not provision, reset the password, or alter mail. Repeating an import preserves the inbox ID and its existing scoped tokens. A failed credential check leaves the prior stored credential unchanged. Use this after restoring an existing Stalwart installation; keep passwords out of logs and command arguments.

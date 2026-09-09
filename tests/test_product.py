@@ -72,6 +72,21 @@ class Product(unittest.TestCase):
             "body_text": "private body",
         }
 
+    def test_import_existing_mailbox_verifies_and_keeps_identity(self):
+        from unittest.mock import Mock
+        self.m.verify_credentials = Mock()
+        first = self.svc.import_inbox(self.admin, "alice@example.test", "existing-password")
+        self.assertEqual(first["id"], self.a)
+        self.m.verify_credentials.assert_called_once_with("alice@example.test", "existing-password")
+        row = self.s.inbox(self.a)
+        self.assertEqual(self.s.open(row["secret"], self.a), "existing-password")
+        with self.assertRaises(Problem):
+            self.svc.import_inbox(self.actor, "alice@example.test", "other-password")
+        self.m.verify_credentials.side_effect = Problem(400, "mailbox_credentials_not_verified")
+        with self.assertRaises(Problem):
+            self.svc.import_inbox(self.admin, "alice@example.test", "bad-password")
+        self.assertEqual(self.s.open(self.s.inbox(self.a)["secret"], self.a), "existing-password")
+
     def test_onboarding_routes(self):
         app = App(self.svc)
         settings = app.route(self.admin, "GET", ["v1", "settings"], {}, {}, {})
