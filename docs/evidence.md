@@ -51,3 +51,28 @@ The implementation accompanying this record passes local developer criteria C01-
 The real UI is `/ui/onboarding/live.html` on the API origin. It uses owner and mailbox bearer tokens in tab memory; production also requires the existing Cloudflare Access gate. The local sample-send route requires admin and explicitly rejects non-development mode. SMTP acceptance is not presented as recipient delivery; the UI waits for actual mailbox arrival.
 
 This completes the local developer milestone, not public-production acceptance. Public SMTP provisioning, live DNS/mail authentication, renewal operations, external delivery and version-changing upgrade/rollback still need the recorded production rehearsals.
+
+## First-run delivery, 2026-09-09
+
+Parogres automatically accepted the clean Linux first-boot criterion and one-time authenticated owner-bootstrap criterion. The first-boot run used a fresh disposable Debian/Python container, no mounted data, no external network, and the documented `make setup`. Chromium rendered actual responses from its loopback listener through the test relay. The owner proof used real HTTP, including anonymous/reused credentials, takeover attempts and restart. Neither result represents full product completion.
+
+Local setup verification commands:
+
+- `make unit`: 31 tests passed after adding Cloudflare plan, conflict, checkpoint, uncertain-write and credential-rotation coverage.
+- `make setup-browser-test`: real local setup form, validation, reconnect and mobile checks passed.
+- `make setup-security-test`: actual one-time owner HTTP checks passed.
+- `make setup-clean-test`: clean Linux startup plus actual first-run screenshot.
+- `make setup-provider-browser-test`: matching provider forms passed against an explicitly injected upstream fixture. This does not prove live Cloudflare compatibility or deployment.
+
+Artifacts are under `.runtime/evidence/`, outside Git. The automatic verifier accepted the clean startup and owner-bootstrap screenshot IDs recorded in Parogres. No other finish-line criterion is claimed complete.
+
+Outstanding: live scoped provider credentials, full private mail-service/connector deployment through the wizard, public DNS/TLS/SMTP verification, both complete clean-install journeys, restart/restore and authorized migration rehearsals. A Cloudflare account/user token-permission lookup through the available plugin returned unauthorized; resource-management access does not supply a credential to the reusable installer.
+
+## Setup control plane and live resource verification (2026-09-09)
+
+- Standalone owner bootstrap, shared forms/API, provider credential replacement, exact-plan Cloudflare apply, persisted checkpoints, isolated subdomain zone resolution and actionable conflicts implemented.
+- Local verification: 35 Python unit tests; first-run browser and provider-form browser suites pass. Provider-form failure tests use an explicitly labelled upstream fixture.
+- Live verification: real Cloudflare isolated resources were created; an acknowledged tunnel checkpoint was interrupted and resumed; repeat planning returned reuse; a deliberate test-only DNS conflict halted apply. All pre-existing domain records compared unchanged before/after. Private raw records and screenshots remain outside Git under `.runtime/evidence`.
+- Parogres automatically accepted resource preservation and structured setup-state criteria after screenshot review. Together with first boot and owner bootstrap, four of thirteen criteria are accepted. Initial insufficient screenshot submissions are retained in its journal.
+- Read-only host preflight now reports Docker/Compose, platform, public-IP classification, port binding, external SMTP TCP connectivity and PTR. External inbound verification is explicitly pending. Unit probes of resolved/failure states are simulations; actual host checks were also performed separately.
+- Full wizard service deployment, complete clean-install journeys, external mail, certificate renewal, edge authorization, completion handover and recovery/migration acceptance are still pending. Do not treat this checkpoint as a completed self-hosted installer.

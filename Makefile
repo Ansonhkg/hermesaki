@@ -53,3 +53,22 @@ browser-test:
 .PHONY: clean-test
 clean-test: client-build .venv/bin/python build-roundcube
 	$(VENV) scripts/clean_acceptance.py
+
+.PHONY: setup
+setup:
+	PYTHONPATH=src $(PYTHON) -m hermesaki.setup
+
+.PHONY: setup-browser-test
+setup-browser-test:
+	node packages/client/test/setup-browser.mjs
+
+.PHONY: setup-clean-test setup-security-test
+setup-clean-test:
+	docker build -f docker/setup-test/Dockerfile -t hermesaki-setup-test:local .
+	node packages/client/test/setup-clean.mjs
+setup-security-test:
+	node packages/client/test/setup-security.mjs
+
+.PHONY: setup-provider-browser-test
+setup-provider-browser-test:
+	node packages/client/test/setup-provider-browser.mjs

@@ -52,3 +52,7 @@ No CI, automatic deployment, live credentials or real mailbox fixtures are inclu
 ## Landing page
 
 Run `make landing` and open http://localhost:19190. A two-section page featuring the Hermesaki messenger, a short workflow and setup links.
+
+## First-run setup preview
+
+Run `make setup` to claim an unconfigured installation and save its domain settings through the app or the same agent API. Infrastructure provisioning is still pending. See [setup documentation](docs/setup.md) for credentials, private access and verification boundaries.

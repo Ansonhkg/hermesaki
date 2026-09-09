@@ -1,0 +1,48 @@
+import {chromium} from 'playwright';
+import {mkdtemp, readFile, mkdir, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawn} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
+import assert from 'node:assert/strict';
+const directory=await mkdtemp(join(tmpdir(),'hermesaki-setup-'));
+const port=19201;
+const server=spawn('python3',['-m','hermesaki.setup','--state',directory,'--port',String(port)],{env:{...process.env,PYTHONPATH:'src'},stdio:['ignore','pipe','pipe']});
+const browser=await chromium.launch({headless:true});
+try {
+ await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',code=>reject(new Error('Setup exited '+code)));});
+ const page=await browser.newPage({viewport:{width:1100,height:1000}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:'+port);
+ await page.waitForFunction(()=>document.querySelector('#access-help').textContent.includes('bootstrap-token'));
+ await mkdir('.runtime/evidence',{recursive:true});
+ await page.screenshot({path:'.runtime/evidence/setup-first-run.png',fullPage:true});
+ await page.locator('#credential').fill('wrong');
+ const owner=randomBytes(32).toString('hex');
+ await page.locator('#new-owner').fill(owner);
+ await page.locator('#connect').click();
+ await page.getByRole('status').filter({hasText:'bootstrap required'}).waitFor();
+ await page.locator('#credential').fill((await readFile(join(directory,'bootstrap-token'),'utf8')).trim());
+ await page.locator('#connect').click();
+ await page.locator('#configuration').waitFor({state:'visible'});
+ await page.locator('[name=domain]').fill('example.com');
+ await page.locator('[name=server_ip]').fill('203.0.113.10');
+ await page.locator('[name=owner_email]').fill('owner@example.com');
+ await page.getByRole('button',{name:'Save configuration'}).click();
+ await page.locator('#review').waitFor({state:'visible'});
+ await page.screenshot({path:'.runtime/evidence/setup-configuration.png',fullPage:true});
+ await page.reload();
+ await page.waitForFunction(()=>document.querySelector('#access-help').textContent.includes('saved owner'));
+ await page.locator('#credential').fill(owner);
+ await page.locator('#connect').click();
+ await page.locator('#review').waitFor({state:'visible'});
+ assert.equal(await page.locator('[name=domain]').inputValue(),'example.com');
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.screenshot({path:'.runtime/evidence/setup-mobile.png',fullPage:true});
+ assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS setup browser: first boot, denied claim, owner claim, configuration, reconnect, mobile, no persisted browser credentials');
+} finally {
+ await browser.close();server.kill();await new Promise(resolve=>server.once('exit',resolve));await rm(directory,{recursive:true,force:true});
+}
