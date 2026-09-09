@@ -4,5 +4,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY src /app/src
 COPY tests /app/tests
+COPY landing /app/landing
+COPY packages/client/dist/index.js /app/landing/client.js
 ENV PYTHONPATH=/app/src PYTHONDONTWRITEBYTECODE=1
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--limit-request-line", "4094", "hermesaki.http:create_app()"]

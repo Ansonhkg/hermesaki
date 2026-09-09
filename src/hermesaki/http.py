@@ -1,5 +1,6 @@
 import json
 import secrets
+import mimetypes
 from pathlib import Path
 from urllib.parse import parse_qs
 import jwt
@@ -47,6 +48,33 @@ class App:
                         )
                     except Exception:
                         raise Problem(401, "access_required")
+                if path.startswith("/ui/") and method == "GET":
+                    root = Path(__file__).resolve().parents[2] / "landing"
+                    relative = path.removeprefix("/ui/") or "index.html"
+                    file = (root / relative).resolve()
+                    if not file.is_relative_to(root.resolve()):
+                        raise Problem(404, "not_found")
+                    if file.is_dir():
+                        file = file / "index.html"
+                    if not file.is_file():
+                        raise Problem(404, "not_found")
+                    start(
+                        "200 OK",
+                        [
+                            (
+                                "Content-Type",
+                                mimetypes.guess_type(str(file))[0]
+                                or "application/octet-stream",
+                            ),
+                            ("Cache-Control", "no-store"),
+                            ("X-Content-Type-Options", "nosniff"),
+                            (
+                                "Content-Security-Policy",
+                                "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; frame-ancestors 'none'",
+                            ),
+                        ],
+                    )
+                    return [file.read_bytes()]
                 if path == "/" and method == "GET":
                     body = Path(__file__).with_name("operator.html").read_bytes()
                     start(
@@ -139,6 +167,34 @@ class App:
 
     def route(self, a, method, p, d, q, e):
         s = self.s
+        if p == ["v1", "settings"] and method == "GET":
+            s.permit(a, "admin")
+            return {
+                "domain": self.c.domain,
+                "mode": self.c.mode,
+                "public_url": self.c.public_url,
+            }
+        if (
+            len(p) == 4
+            and p[:2] == ["v1", "inboxes"]
+            and p[3] == "test-message"
+            and method == "POST"
+        ):
+            s.permit(a, "admin")
+            if self.c.mode != "development":
+                raise Problem(403, "local_test_only")
+            dest = s.store.inbox(p[2])
+            sender = s.create_inbox(a, "onboarding-test@" + self.c.domain)
+            return s.send(
+                {"id": a["id"], "inbox": sender["id"], "scopes": ["mail.write"]},
+                sender["id"],
+                {
+                    "to": [dest["email"]],
+                    "subject": "Hello from Hermesaki",
+                    "body_text": "Your real local inbox is ready. Read this message through MCP, the SDK or CLI.",
+                },
+                e.get("HTTP_IDEMPOTENCY_KEY"),
+            )
         if p == ["v1", "inboxes"] and method == "POST":
             return s.create_inbox(a, d["email"])
         if p == ["v1", "inboxes"] and method == "GET":

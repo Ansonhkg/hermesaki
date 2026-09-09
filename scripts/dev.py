@@ -95,6 +95,7 @@ dc("restart", "mail")
 dc("run", "--rm", "api", "python", "-m", "hermesaki.bootstrap", "configure")
 dc("restart", "mail")
 dc("up", "-d", "api", "worker", "receiver", "webmail", "edge")
+dc("restart", "edge")
 print(
     "API: http://localhost:19100  Webmail: http://localhost:19180  Capture: http://localhost:19125"
 )

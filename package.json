@@ -1,0 +1,20 @@
+{
+  "name": "hermesaki-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/client"
+  ],
+  "scripts": {
+    "build": "tsc -p packages/client && node -e \"require('node:fs').chmodSync('packages/client/dist/cli.js', 0o755)\"",
+    "test": "npm run build && node --test packages/client/test/*.test.mjs",
+    "test:live": "npm run build && node packages/client/test/live.mjs",
+    "test:browser": "node packages/client/test/browser.mjs",
+    "hermesaki": "node packages/client/dist/cli.js"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "22.19.0",
+    "playwright": "1.58.2"
+  }
+}

@@ -6,7 +6,7 @@ Production changes are intentionally explicit. Do not point this setup at an exi
 2. Create DNS: DNS-only `mail` A/AAAA, MX pointing to that hostname, SPF authorizing the sending host, DKIM from Stalwart's generated domain keys, and DMARC. Copy existing website records before changing nameservers. DNS and external connectivity checks cannot be emulated locally.
 3. Create a Cloudflare Tunnel. Route an inbox hostname to `http://webmail:80` and an API hostname to `http://api:8000`. Add a final catch-all 404. Protect **both entire hostnames** with Access applications before publishing routes. Allow only your intended user identities and service tokens. There must be no bypass rule. The API application audience belongs in the product configuration.
 4. Obtain a valid mail certificate, private key and CA chain for `mail.<domain>`. The mail API and Roundcube verify this hostname through a private Docker network alias. Store the tunnel token in a file outside Git.
-5. Clone this private repo, run `make prepare`, copy `production.example.json` outside Git, and set the domain, mail hostname, management URL, public API URL, Access team and API audience. Keep `dev_auth` false. Only add explicit webhook destinations.
+5. Install Node.js 22+, clone this private repo, run `npm ci --ignore-scripts && npm run build` and `make prepare`, copy `production.example.json` outside Git, and set the domain, mail hostname, management URL, public API URL, Access team and API audience. Keep `dev_auth` false. Only add explicit webhook destinations.
 6. Run first-time provisioning:
 
 ```sh

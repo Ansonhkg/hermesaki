@@ -50,3 +50,22 @@ Record commit, host platform, component digests, test command, scenario, result,
 ## Out of scope for the first releases
 
 Hosted billing, public signup, automatic bulk outreach, multi-region availability and full AgentMail API compatibility. A self-hosted agent email product does not imply drop-in compatibility with another vendor's API.
+
+## Local developer product: TypeScript and real onboarding
+
+| ID | Acceptance criterion | Evidence command |
+| --- | --- | --- |
+| C01 | One documented setup starts mail, capture, API, webmail and real onboarding. | `make dev`, `make clean-test` |
+| C02 | Owner-authenticated onboarding creates an inbox and issues a scoped token; mock UI remains separate. | `make browser-test` |
+| C03 | A real MCP connection check verifies both credentials and mailbox access. | `make browser-test`, `make client-live` |
+| C04 | TypeScript SDK supports typed inbox, token, read, send and reply operations and actionable errors. | `make client-test`, `make client-live` |
+| C05 | CLI uses the SDK, writes new tokens to private files, and supports inbox/read/send/reply operations. | `make client-live` |
+| C06 | SDK, CLI and MCP read real local mail and attachments; replies preserve threading. | `make client-live`, `make integration` |
+| C07 | Read-only, cross-mailbox, expired and revoked credentials are denied. | `make unit`, `make client-live` |
+| C08 | Failure/retry scenarios preserve idempotency and do not send externally. | `make unit`, `make client-test`, `make client-live` |
+| C09 | Restarts and isolated encrypted restoration preserve mail and authorization. | `make clean-test`, `make restore-test` |
+| C10 | Desktop/mobile onboarding exercises real loading, error/retry, empty and success states. | `make browser-test` plus visual inspection |
+| C11 | Fresh local data can complete the client and browser flow without CI. | `make clean-test` |
+| C12 | Documentation and private repository include reproducible build, usage and test commands. | `docs/typescript.md`, `Makefile` |
+
+Production gates A09/A10/A14 and the external checks remain separate from completion of C01-C12. This milestone does not add public signup, hosted billing or an AI reasoning provider.

@@ -72,6 +72,30 @@ class Product(unittest.TestCase):
             "body_text": "private body",
         }
 
+    def test_onboarding_routes(self):
+        app = App(self.svc)
+        settings = app.route(self.admin, "GET", ["v1", "settings"], {}, {}, {})
+        self.assertEqual(settings["domain"], "example.test")
+        with self.assertRaises(Problem):
+            app.route(self.actor, "GET", ["v1", "settings"], {}, {}, {})
+        route = ["v1", "inboxes", self.a, "test-message"]
+        with self.assertRaises(Problem):
+            app.route(
+                self.admin, "POST", route, {}, {}, {"HTTP_IDEMPOTENCY_KEY": "test"}
+            )
+        self.c.mode = "development"
+        first = app.route(
+            self.admin, "POST", route, {}, {}, {"HTTP_IDEMPOTENCY_KEY": "test"}
+        )
+        second = app.route(
+            self.admin, "POST", route, {}, {}, {"HTTP_IDEMPOTENCY_KEY": "test"}
+        )
+        self.assertEqual(first["id"], second["id"])
+        with self.assertRaises(Problem):
+            app.route(
+                self.actor, "POST", route, {}, {}, {"HTTP_IDEMPOTENCY_KEY": "test"}
+            )
+
     def test_auth(self):
         ro = self.s.auth(self.s.token(self.a, ["mail.read"])["token"])
         with self.assertRaises(Problem):

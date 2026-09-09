@@ -37,8 +37,8 @@ with tempfile.TemporaryDirectory(prefix="hermesaki-restore-") as tmp:
                 volume["source"] = source.replace(
                     str(root / ".runtime"), str(dest / "restore/state"), 1
                 )
-        for port in service.get("ports", []):
-            port["published"] = str(int(port["published"]) + 10)
+        # The rehearsal probes services inside Docker; no host ports are needed.
+        service.pop("ports", None)
     for name, network in config["networks"].items():
         network["name"] = "hermesaki-restore_" + name
     conf = dest / "compose.json"

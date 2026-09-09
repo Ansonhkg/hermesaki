@@ -1,6 +1,8 @@
+
 """Run inside the local API container; no real recipients or external services."""
 
 import html
+import http.client
 import base64
 import http.cookiejar
 import json
@@ -32,16 +34,24 @@ def request(path, data=None, method=None, headers=None):
         "Content-Type": "application/json",
         **(headers or {}),
     }
-    r = urllib.request.urlopen(
-        urllib.request.Request(
-            "http://api:8000" + path,
-            data=json.dumps(data).encode() if data is not None else None,
-            headers=h,
-            method=method,
-        ),
-        timeout=20,
-    )
-    return json.load(r)
+    safe_retry = data is None or "Idempotency-Key" in h
+    for attempt in range(3):
+        try:
+            r = urllib.request.urlopen(
+                urllib.request.Request(
+                    "http://api:8000" + path,
+                    data=json.dumps(data).encode() if data is not None else None,
+                    headers=h,
+                    method=method,
+                ),
+                timeout=20,
+            )
+            return json.load(r)
+        except (http.client.RemoteDisconnected, ConnectionResetError):
+            if not safe_retry or attempt == 2:
+                raise
+            print("Transient API disconnect; retrying a read or idempotent request.")
+            time.sleep(1)
 
 
 messages = request("/v1/inboxes/" + a["id"] + "/messages")

@@ -1,0 +1,1 @@
+{"name":"@hermesaki/client","version":"0.1.0","private":true,"type":"module","exports":{".":{"types":"./dist/index.d.ts","import":"./dist/index.js"}},"bin":{"hermesaki":"./dist/cli.js"},"files":["dist"],"engines":{"node":">=22"}}

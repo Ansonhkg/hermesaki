@@ -11,3 +11,10 @@
 !requirements.txt
 !tests/
 !tests/**
+
+!landing/
+!landing/**
+!packages/
+!packages/client/
+!packages/client/dist/
+!packages/client/dist/index.js

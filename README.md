@@ -6,7 +6,7 @@ Self-hosted email for people and agents. Stalwart stores and delivers mail, Roun
 
 ## Run locally
 
-Requires Docker Compose, Python 3.12+, Git and authenticated `gh`. Tested on Apple Silicon with Docker Desktop. Linux staging verification is still pending.
+Requires Docker Compose, Python 3.12+, Node.js 22+, Git and authenticated `gh`. Tested on Apple Silicon with Docker Desktop; the mail core also has captured-mail Linux staging evidence.
 
 ```sh
 make dev          # build pinned images and provision the isolated stack
@@ -17,6 +17,7 @@ make restore-test # restore a complete encrypted snapshot into another stack
 
 | Open | Address |
 | --- | --- |
+| Agent onboarding | http://localhost:19100/ui/onboarding/live.html |
 | Browser inbox | http://localhost:19180 |
 | Operator and API | http://localhost:19100 |
 | Captured outbound mail | http://localhost:19125 |
@@ -25,6 +26,10 @@ make restore-test # restore a complete encrypted snapshot into another stack
 `make credentials` displays the fictional webmail passwords locally. The operator token is in `.runtime/product/operator-token`; paste it into the operator page. Alice's development API token is in `.runtime/product/alice-token`. These files are ignored by Git. Development tokens expire after 30 days; mint replacements with the operator API.
 
 Local mail, API and workers have no external network route. Only the loopback web proxy has a bridge network. Mail addressed outside the local domain goes to Mailpit, including addresses that look real. Production uses a separate Compose file with explicit SMTP egress.
+
+## TypeScript SDK, CLI and onboarding
+
+[Developer guide](docs/typescript.md): SDK examples, CLI commands, mailbox tokens and real onboarding. Run `make browser-test` for the UI flow and `make clean-test` to rehearse a fresh isolated install. The separate landing-page mock remains available for visual previews.
 
 ## Use the API and MCP
 

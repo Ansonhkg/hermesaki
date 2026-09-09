@@ -35,3 +35,19 @@ Commands: `make unit`, `make integration`, `make restore-test`, and authenticate
 | B07-B08 | Metadata operator view, drafts and explicit approval gate implemented and exercised. |
 
 This is a working reusable implementation with captured-mail staging, not a declaration that every public-production release gate has passed. Production SMTP activation, DNS alignment, certificate renewal operations and a real version-changing upgrade remain explicit checks.
+
+## TypeScript SDK, CLI and real onboarding (2026-09-09)
+
+The implementation accompanying this record passes local developer criteria C01-C12 on macOS Apple Silicon, Node 22 and Docker Desktop. Commands run locally; no CI added.
+
+- `make test`: 17 Python tests, four SDK contract tests, upstream integration and the real SDK/CLI/MCP mail flow pass. Coverage includes attachments, threaded replies via CLI, idempotent concurrent sends, conflicting payloads, expiry, revocation, cross-mailbox denial and external-shaped recipients captured in Mailpit.
+- `make browser-test`: real owner authentication, denied login, backend failure and retry, inbox creation, mailbox token issuance, actual MCP folder access, queued SMTP sample arrival/read, confirmed deletion and mobile overflow checks pass. Local/session storage remain empty. Desktop/mobile visual inspection also completed.
+- `make clean-test`: a separate freshly provisioned Compose stack passes the SDK/CLI/MCP and browser flows. Restart plus the upstream seed/mail suite pass afterward. Temporary services are removed; original runtime is preserved.
+- `make restore-test`: a stopped encrypted snapshot restores into a separate mail/API/webmail stack and passes upstream integration. Original services resume. The rehearsal no longer publishes unnecessary host ports, avoiding collision with the landing preview.
+- A transient post-restart transport disconnect was observed. The upstream test harness now retries only reads or requests carrying an idempotency key, at most three attempts; other mutations are never retried automatically. Persistent failures still fail the suite.
+- TypeScript package builds and packs with declarations and an executable CLI. Credentials are not printed by token issuance; they are written to a new 0600 file. The package is available from this private workspace, not published on npm.
+- Ruff and Git whitespace checks pass. Runtime credentials/logs/screenshots remain ignored. Local logs are `.runtime/local-acceptance.log`, `.runtime/clean-acceptance.log` and `.runtime/restore-acceptance.log`.
+
+The real UI is `/ui/onboarding/live.html` on the API origin. It uses owner and mailbox bearer tokens in tab memory; production also requires the existing Cloudflare Access gate. The local sample-send route requires admin and explicitly rejects non-development mode. SMTP acceptance is not presented as recipient delivery; the UI waits for actual mailbox arrival.
+
+This completes the local developer milestone, not public-production acceptance. Public SMTP provisioning, live DNS/mail authentication, renewal operations, external delivery and version-changing upgrade/rollback still need the recorded production rehearsals.

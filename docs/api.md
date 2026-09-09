@@ -8,6 +8,8 @@ Scopes are `admin`, `mail.read`, `mail.write` and `mail.delete`. Admin tokens ma
 
 | Method and route | Permission | Result |
 | --- | --- | --- |
+| `GET /v1/settings` | admin | Configured domain, mode and public API URL |
+| `POST /v1/inboxes/{id}/test-message` | admin, development only | Queue a real local SMTP fixture; requires `Idempotency-Key` |
 | `GET /v1/inboxes` | admin | Inbox metadata, 50 per page with `offset` |
 | `POST /v1/inboxes` | admin | Create or retrieve `{email}` on the configured domain |
 | `DELETE /v1/inboxes/{id}` | admin | Delete the mail account with `{confirm_email}`; revoke tokens and cancel queued work |
