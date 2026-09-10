@@ -57,7 +57,7 @@ Open http://localhost:19100/ui/onboarding/live.html after `make dev`. Choose `.r
 
 Changing permissions means issuing a new scoped token and revoking the old one. Issuing a new token alone does not revoke other clients. Mailbox credentials and owner credentials are distinct. Owner tokens do not implicitly read all inboxes.
 
-The preview at `/ui/onboarding/` remains explicitly mock-only. The real page does not accept preview-state switches. The local SMTP test endpoint requires an owner token, targets an existing mailbox and is disabled outside development. In production, send an actual message from your mail client and refresh the inbox instead.
+The `/ui/onboarding/` route redirects to the real sign-in page. The real page does not accept preview-state switches. The local SMTP test endpoint requires an owner token, targets an existing mailbox and is disabled outside development. In production, send an actual message from your mail client and refresh the inbox instead.
 
 ## Local acceptance commands
 

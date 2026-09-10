@@ -7,7 +7,7 @@ export default defineConfig({esbuild:{jsx:'automatic'},root:resolve(root,'demo')
  const path=new URL(req.url!,'http://localhost').pathname;
  if(path==='/reset-demo'&&req.method==='POST'){api=mockApi();res.end('{}');return;}
  if(path.startsWith('/v1/')||path==='/mcp'){let text='';for await(const chunk of req)text+=chunk;const [status,data]=api(path,req.method!,text?JSON.parse(text):{},req.headers.authorization||'');res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));return;}
- let file=path==='/setup'?'src/hermesaki/setup.html':path==='/setup.js'||path==='/setup.css'?'src/hermesaki'+path:path.startsWith('/ui/')?'landing/'+path.slice(4):path==='/recordings.json'?'.runtime/demo/recordings.json':null;
+ let file=path==='/setup'?'src/hermesaki/setup.html':path==='/setup.js'||path==='/setup.css'?'src/hermesaki'+path:path.startsWith('/ui/')?'landing/'+path.slice(4)+(path.endsWith('/')?'index.html':''):path==='/recordings.json'?'.runtime/demo/recordings.json':null;
  if(path==='/ui/client.js')file='packages/client/dist/index.js';
  if(file){const full=resolve(root,file);if(!full.startsWith(root+'/')||!existsSync(full)){res.statusCode=404;res.end('Not found');return;}
  let body=readFileSync(full);const ext=full.split('.').at(-1);res.setHeader('Content-Type',({html:'text/html',js:'text/javascript',css:'text/css',json:'application/json',png:'image/png'} as any)[ext!]||'application/octet-stream');
