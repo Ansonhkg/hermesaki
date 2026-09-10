@@ -1,7 +1,7 @@
 import os,json,sys,datetime,argparse
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from hermesaki.setup_cloudflare import Cloudflare,CloudflareError,fingerprint
+from hermesaki.setup_cloudflare import Cloudflare,CloudflareError,fingerprint,web_hosts
 parser=argparse.ArgumentParser(description='Live verification that temporarily changes ONLY a previously provisioned isolated test CNAME and restores it.')
 parser.add_argument('--evidence-dir',required=True)
 parser.add_argument('--confirm-isolated-domain',required=True)
@@ -23,7 +23,7 @@ tunnels=cf.all('/accounts/'+account+'/cfd_tunnel',{'is_deleted':'false'})
 assert len([t for t in tunnels if t['name']=='hermesaki-'+settings['domain']])==1
 record('No duplicate test tunnel','Exactly one tunnel with the isolated installation name')
 path='/zones/'+zone+'/dns_records'
-name='inbox.'+settings['domain']
+name=web_hosts(settings)[1]
 item=cf.all(path,{'name':name})[0]
 changed=False
 try:

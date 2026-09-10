@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from .setup_cloudflare import CloudflareError, fingerprint
+from .setup_cloudflare import CloudflareError, fingerprint, web_hosts
 
 
 class DeploymentError(Exception):
@@ -91,13 +91,13 @@ class Services:
         if current['conflicts'] or any(a['operation']!='reuse' for a in current['actions']):
             raise DeploymentError('web_protection_changed')
         actions, conflicts, observed = dns_plan(provider,web_plan['zone_id'],records_for(settings))
-        if hasattr(provider,'validate_access_team') and not provider.validate_access_team('hermesaki.'+settings['domain'],options['access_team']):
-            conflicts.append('The operator hostname does not redirect to this Access team. Correct the team name or wait for web DNS to propagate, then refresh the plan.')
+        if hasattr(provider,'validate_access_team') and not provider.validate_access_team(web_hosts(settings)[0],options['access_team']):
+            conflicts.append('Operator HTTPS and Access redirect are not verified. Check certificate coverage, web DNS propagation and the Access team name, then refresh the plan.')
         if self.root.exists() and not (self.root/'owned-plan').exists() and any(self.root.iterdir()):
             conflicts.append('Installation directory is not owned by this setup. Existing data will not be adopted.')
         lock = json.loads((self.repository/'components.lock.json').read_text())
         plan = {'scope':'fresh_mail_installation','zone_id':web_plan['zone_id'],'account_id':web_plan['account_id'],
-            'tunnel_id':progress['tunnel_id'],'options':options,'actions':actions,
+            'tunnel_id':progress['tunnel_id'],'web_protection':current['actions'],'operator_hostname':web_hosts(settings)[0],'webmail_hostname':web_hosts(settings)[1],'options':options,'actions':actions,
             'services':{'mail':{'image':lock['stalwart']['image'],'published_ports':[{'ip':settings['server_ip'],'port':25}], 'hostname':'mail.'+settings['domain']},
                 'api':{'source':'docker/api/Dockerfile','published_ports':[],'application_auth':'Cloudflare JWT plus scoped bearer token'},
                 'worker':{'source':'docker/api/Dockerfile','published_ports':[]},

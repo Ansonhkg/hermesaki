@@ -11,7 +11,7 @@ import sys
 import datetime
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from hermesaki.setup import Setup
-from hermesaki.setup_cloudflare import Cloudflare
+from hermesaki.setup_cloudflare import Cloudflare, web_hosts
 
 p = argparse.ArgumentParser()
 p.add_argument('--state', required=True)
@@ -58,6 +58,9 @@ with os.fdopen(fd, 'w') as f: f.write(owner)
 setup.call('POST','/v1/setup/claim',(root/'bootstrap-token').read_text(),{'owner_token':owner})
 setup.call('PUT','/v1/setup/configuration',owner,settings)
 plan = setup.call('PUT','/v1/setup/cloudflare',owner,{'token':cf.token})['plan']
+settings = setup.call('GET','/v1/setup',owner,{})['settings']
+if not all(x['operation']=='create' for x in plan['actions']):
+    raise SystemExit('Use an unused test subdomain; no apply performed')
 secret_digest = hashlib.sha256((root/'cloudflare-token').read_bytes()).digest()
 trace('Launching fresh setup process', {'state':str(root),'plan_id':plan['id']})
 child = subprocess.run([sys.executable, __file__, '--state',str(root),'--settings',a.settings,'--confirm-isolated-domain',a.confirm_isolated_domain,'--child'], capture_output=True)
@@ -79,7 +82,7 @@ def inventory():
     fresh = cf.plan(settings)
     tunnels = cf.all('/accounts/'+plan['account_id']+'/cfd_tunnel',{'is_deleted':'false'})
     apps = cf.all('/accounts/'+plan['account_id']+'/access/apps')
-    hosts = ['inbox.'+settings['domain'],'hermesaki.'+settings['domain']]
+    hosts = web_hosts(settings)
     records = cf.all('/zones/'+plan['zone_id']+'/dns_records')
     data = {'tunnels':[t['id'] for t in tunnels if t['name']=='hermesaki-'+settings['domain']], 'access_apps': sorted(t['id'] for t in apps if t.get('domain') in hosts), 'dns_records':sorted(t['id'] for t in records if t['name'] in hosts)}
     assert [len(data[k]) for k in ['tunnels','access_apps','dns_records']] == [1,2,2]

@@ -7,6 +7,11 @@ import urllib.parse
 import urllib.request
 
 
+def web_hosts(settings):
+    return (settings.get('operator_hostname','hermesaki.'+settings['domain']),
+            settings.get('webmail_hostname','inbox.'+settings['domain']))
+
+
 class CloudflareError(Exception):
     pass
 
@@ -32,7 +37,7 @@ class Cloudflare:
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):return None
         try:
-            urllib.request.build_opener(NoRedirect()).open('https://'+hostname, timeout=15)
+            urllib.request.build_opener(NoRedirect()).open(urllib.request.Request('https://'+hostname,headers={'User-Agent':'Hermesaki-Setup/1.0'}), timeout=15)
         except urllib.error.HTTPError as error:
             return error.code in (301,302,303,307,308) and error.headers.get('Location','').startswith('https://'+team+'.cloudflareaccess.com/')
         except (OSError,ValueError):
@@ -99,7 +104,10 @@ class Cloudflare:
             conflicts.append('Tunnel must end with a deny-all fallback; existing fallback will not be overwritten.')
         actions = [{'kind':'tunnel','operation':'reuse' if tunnel else 'create','name':name,'id':tunnel['id'] if tunnel else None}]
         observed = {'zone':zone['id'], 'account':account, 'tunnel':{'id':tunnel['id'],'config':config} if tunnel else None, 'hosts':[]}
-        for kind, hostname, origin in [('operator','hermesaki.'+settings['domain'],'http://api:8000'),('webmail','inbox.'+settings['domain'],'http://webmail:80')]:
+        operator_host,webmail_host=web_hosts(settings)
+        for kind, hostname, origin in [('operator',operator_host,'http://api:8000'),('webmail',webmail_host,'http://webmail:80')]:
+            if not hostname.endswith('.'+zone['name']):
+                raise CloudflareError('web_hostname_must_belong_to_domain_zone')
             records = self.all('/zones/'+zone['id']+'/dns_records', {'name':hostname})
             matching = [a for a in apps if a.get('domain') == hostname]
             policies = self.all(prefix+'/access/apps/'+matching[0]['id']+'/policies') if len(matching)==1 else []
@@ -122,7 +130,7 @@ class Cloudflare:
             actions.append({'kind':'access','operation':'reuse' if compatible_app else 'conflict' if matching else 'create','hostname':hostname,'allow_email':settings['owner_email'],'name':'Hermesaki '+kind})
             actions.append({'kind':'route','operation':'reuse' if matching_routes==[route] else 'conflict' if matching_routes else 'create',**route})
             actions.append({'kind':'dns','operation':'reuse' if compatible_dns else 'conflict' if records else 'create','hostname':hostname,'type':'CNAME','proxied':True,'target':target})
-        plan = {'scope':'web_protection_only','zone_id':zone['id'],'account_id':account,'actions':actions,'conflicts':sorted(set(conflicts)),
+        plan = {'scope':'web_protection_only','zone_name':zone['name'],'zone_id':zone['id'],'account_id':account,'actions':actions,'conflicts':sorted(set(conflicts)),
             'apply_available':not conflicts,'checks':{'zone_read':'passed','dns_read':'passed','access_read':'passed','tunnel_read':'passed','write_permissions':'unverified'},
             'remaining':['Mail deployment and connector startup remain separate.','Mail DNS, TLS, SMTP and end-to-end mail are not configured by this plan.']}
         plan['id'] = fingerprint({'settings':settings,'observed':observed,'actions':actions})

@@ -65,6 +65,15 @@ class Plans(unittest.TestCase):
         self.assertFalse(plan['apply_available'])
         self.assertTrue(any(x['operation']=='conflict' for x in plan['actions']))
 
+    def test_new_subdomain_setup_uses_certificate_covered_web_names(self):
+        self.setup.call('PUT','/v1/setup/configuration',self.owner,dict(self.settings,domain='trial.example.com'))
+        result=self.setup.call('PUT','/v1/setup/cloudflare',self.owner,{'token':'credential-123456789012345'})
+        state=self.setup.call('GET','/v1/setup',self.owner,{})
+        self.assertEqual(state['settings']['operator_hostname'],'hermesaki-trial.example.com')
+        self.assertEqual(state['settings']['webmail_hostname'],'inbox-trial.example.com')
+        self.assertTrue(any(a.get('hostname')=='inbox-trial.example.com' for a in result['plan']['actions']))
+        self.assertEqual(self.setup.call('POST','/v1/setup/plan',self.owner,{})['id'],result['plan']['id'])
+
     def test_pagination_does_not_drop_second_page(self):
         class Pages(Cloudflare):
             def call(self, method,path,body=None,query=None):

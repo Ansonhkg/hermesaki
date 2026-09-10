@@ -86,3 +86,9 @@ Outstanding: live scoped provider credentials, full private mail-service/connect
 - Separate real DNS-01 certificate issuance and ACME renewal dry-run succeeded on an isolated authorized subdomain. The actual private deployment identity and certificate state remain outside Git. This does not prove a full public clean installation.
 - Private artifacts: `.runtime/evidence/setup-runtime-final.log`, `setup-service-plan-fixture.png`, `setup-build.log`, `acme-public-check.log`.
 - Full public installation, completed setup handover and remaining approved Parogres criteria are still pending. No percentage was assigned from these checks.
+
+### Live web-hostname regression
+
+Live HTTPS verification exposed that nested web names on test subdomains were outside Cloudflare's default certificate coverage. New setup flows now persist flat, certificate-covered web names; existing saved plans retain their names. A real isolated web plan successfully created the corresponding protected endpoints, and the service planner verified the Access redirect. The real browser/HTTP test rejected a deliberately invalid service-plan confirmation. Unit coverage is now 47 tests.
+
+The plan screenshot was submitted to Parogres. The verifier requested stronger before/after and successful authorized-execution evidence, so it did not advance acceptance. That verdict is retained; no owner bypass or percentage change was performed. Full public clean-install verification needs a separate available mail endpoint because the existing production SMTP address is occupied.

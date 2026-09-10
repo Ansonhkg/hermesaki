@@ -11,7 +11,7 @@ import re
 import secrets
 import sqlite3
 from pathlib import Path
-from .setup_cloudflare import Cloudflare, CloudflareError, fingerprint
+from .setup_cloudflare import Cloudflare, CloudflareError, fingerprint, web_hosts
 from .setup_preflight import host_checks
 from .setup_services import Services, DeploymentError, dns_plan, private_write
 from .setup_runtime import Runtime
@@ -235,7 +235,16 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 if not row["settings"]:
                     raise Rejected(409, "configuration_required")
                 try:
-                    plan = self.cloudflare(raw).plan(json.loads(row["settings"]))
+                    settings = json.loads(row["settings"])
+                    plan = self.cloudflare(raw).plan(settings)
+                    if not db.execute("SELECT 1 FROM progress").fetchone() and settings["domain"] != plan.get("zone_name",settings["domain"]) and not settings.get("operator_hostname"):
+                        zone = plan["zone_name"]
+                        prefix = settings["domain"][:-(len(zone)+1)].replace(".","-")
+                        if len(prefix)>48:
+                            prefix = digest(prefix)[:24]
+                        settings.update(operator_hostname="hermesaki-"+prefix+"."+zone,webmail_hostname="inbox-"+prefix+"."+zone)
+                        plan = self.cloudflare(raw).plan(settings)
+                        db.execute("UPDATE state SET settings=? WHERE id=1",(json.dumps(settings),))
                 except CloudflareError as error:
                     raise Rejected(400, str(error))
                 # No credential is saved until validation succeeds. Atomic replacement supports rotation.
@@ -348,8 +357,8 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
         if settings:
             result["plan"] = {"state": "draft", "changes_applied": False, "domain": settings["domain"],
                 "mail_hostname": "mail." + settings["domain"],
-                "webmail_hostname": "inbox." + settings["domain"],
-                "operator_hostname": "hermesaki." + settings["domain"],
+                "webmail_hostname": web_hosts(settings)[1],
+                "operator_hostname": web_hosts(settings)[0],
                 "preserve_existing_resources": True}
         return result
 

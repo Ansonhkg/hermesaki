@@ -11,14 +11,14 @@ function render(state) {
   $('#cloudflare').hidden=!state.settings;
   renderProvider(state.cloudflare_plan);
   if(state.provisioning){$('#apply-state').textContent=state.provisioning.state.replaceAll('_',' ')+(state.provisioning.inflight?' · An operation may be incomplete. Review before retrying.':'');}
-  if(state.settings) for(const [key,value] of Object.entries(state.settings)) $('#settings').elements[key].value=value;
+  if(state.settings) for(const [key,value] of Object.entries(state.settings)) if($('#settings').elements[key]) $('#settings').elements[key].value=value;
   $('#review').hidden=!state.settings;
   $('#plan').replaceChildren();
   for (const [key,value] of Object.entries(state.plan || {}).filter(([key])=>['mail_hostname','webmail_hostname','operator_hostname'].includes(key))) {const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key.replaceAll('_',' ');dd.textContent=String(value);$('#plan').append(dt,dd);}
   renderHost(state.host_preflight);
   $('#checks').replaceChildren(...state.checks.map(check=>{const li=document.createElement('li');li.textContent=check.id.replaceAll('_',' ')+' · '+check.state+(check.detail?' ('+check.detail+')':'');return li;}));
 }
-async function busy(form, action) {const button=form.querySelector('[type=submit]');button.disabled=true;$('#feedback').textContent='';try{await action();}catch(error){$('#feedback').textContent=error.message;}finally{button.disabled=false;}}
+async function busy(form, action) {const button=form.querySelector('[type=submit]');button.disabled=true;$('#feedback').textContent='';try{await action();}catch(error){$('#feedback').textContent=error.message;if(form.id==='service-apply')$('#service-status').textContent=error.message;}finally{button.disabled=false;}}
 $('#generate').onclick=()=>{const bytes=crypto.getRandomValues(new Uint8Array(32));const value=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');$('#new-owner').value=value;const url=URL.createObjectURL(new Blob([value],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='hermesaki-owner-token.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('#feedback').textContent='Keep the downloaded owner credential private. You will need it to reconnect.';};
 $('#claim').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{const credential=$('#credential').value.trim();if(!claimed){const owner=$('#new-owner').value.trim();await request('/v1/setup/claim','POST',{owner_token:owner},credential);token=owner;claimed=true;}else token=credential;render(await request('/v1/setup'));$('#credential').value='';$('#new-owner').value='';$('#access').hidden=true;});};
 $('#settings').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{render(await request('/v1/setup/configuration','PUT',Object.fromEntries(new FormData(event.target))));$('#feedback').textContent='Configuration saved. Verification and deployment remain pending.';});};
@@ -52,9 +52,12 @@ render = function(state) {
  servicePlan=state.service_plan;
  $('#service-review').hidden=!servicePlan;
  if(servicePlan){
+  $('#access-team').value=servicePlan.options.access_team;$('#first-mailbox').value=servicePlan.first_mailbox;$('#acme-terms').checked=servicePlan.options.accept_acme_terms;
   const planView=$('#service-plan-text');planView.replaceChildren();
   const description=document.createElement('p');description.textContent='Create '+servicePlan.first_mailbox+'. Only SMTP port 25 is public. Webmail and agent access stay behind Cloudflare.';planView.append(description);
   const records=document.createElement('ul');for(const action of servicePlan.actions){const li=document.createElement('li');li.textContent=action.operation+' '+action.record.type+' '+action.record.name+' → '+action.record.content;records.append(li);}planView.append(records);
+  const endpoints=document.createElement('p');endpoints.textContent='Protected webmail: '+servicePlan.webmail_hostname+'. Operator and MCP: '+servicePlan.operator_hostname+'. Existing Tunnel and owner-only Access rules are rechecked before startup.';planView.append(endpoints);
+  const services=document.createElement('ul');for(const [name,service] of Object.entries(servicePlan.services)){const li=document.createElement('li');li.textContent=name+': '+(service.published_ports.length?'public SMTP only':'private network')+(service.application_auth?' · '+service.application_auth:'');services.append(li);}planView.append(services);
   for(const conflict of servicePlan.conflicts){const p=document.createElement('p');p.textContent=conflict;planView.append(p);}
   const tls=document.createElement('p');tls.textContent='Certificate: '+servicePlan.certificate.hostname+' via Let’s Encrypt. Automatic renewal checks every 12 hours.';planView.append(tls);
   const details=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre');summary.textContent='Full service plan';pre.style.whiteSpace='pre-wrap';pre.style.overflowWrap='anywhere';pre.textContent=JSON.stringify(servicePlan,null,2);details.append(summary,pre);planView.append(details);

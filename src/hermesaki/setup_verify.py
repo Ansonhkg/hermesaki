@@ -5,6 +5,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from .setup_services import DeploymentError
+from .setup_cloudflare import web_hosts
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -35,9 +36,9 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
         add('webmail','pending','Private webmail is not yet verified.')
         add('tls','pending','Served certificate has not been verified.')
     protected=True
-    for host in ('inbox.'+settings['domain'],'hermesaki.'+settings['domain']):
+    for host in web_hosts(settings):
         try:
-            urllib.request.build_opener(NoRedirect()).open('https://'+host,timeout=15)
+            urllib.request.build_opener(NoRedirect()).open(urllib.request.Request('https://'+host,headers={'User-Agent':'Hermesaki-Setup/1.0'}),timeout=15)
             protected=False
         except urllib.error.HTTPError as error:
             expected='https://'+plan['options']['access_team']+'.cloudflareaccess.com/'
