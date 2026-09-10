@@ -14,7 +14,7 @@ Use `Authorization: Bearer <credential>` in headers, never in URLs. JSON request
 2. Generate a fresh owner credential from at least 32 cryptographically random bytes, encoded as URL-safe base64 or hex. Save it privately before sending the claim.
 3. `POST /v1/setup/claim` with bootstrap authorization and `{"owner_token":"<new-owner-credential>"}` claims the instance once.
 4. With owner authorization, `GET /v1/setup` exposes configuration, pending checks and next actions.
-5. `PUT /v1/setup/configuration` accepts exactly `domain`, `server_ip` and `owner_email` (the domain may be a subdomain of an authorized Cloudflare zone). Repeating the same request is safe; settings persist across restart.
+5. `PUT /v1/setup/configuration` accepts `domain`, `server_ip`, `owner_email` and optional `outbound_ip` (the domain may be a subdomain of an authorized Cloudflare zone). Repeating the same request is safe; settings persist across restart.
 
 The forms call these exact endpoints. The state database contains credential hashes, not plaintext owner credentials. Back up the private setup directory alongside the product state, and retain the owner credential separately.
 
@@ -153,3 +153,5 @@ The sync worker also accepts `HERMESAKI_CERTIFICATE_FILE` and
 `HERMESAKI_CERTIFICATE_KEY` for a read-only certificate source managed by an
 existing reverse proxy. Additional hostnames write separate health records,
 so one certificate cannot overwrite another hostname's verification status.
+
+For a server whose incoming and outgoing mail use different public addresses, set `outbound_ip` in configuration or the form. Both addresses appear in the reviewed SPF record. This declares the actual egress address; it does not alter host routing. External delivery verification still has to confirm SPF passes.

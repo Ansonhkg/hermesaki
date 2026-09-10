@@ -488,7 +488,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
 
 
 def validate(data):
-    if set(data) != {"domain", "server_ip", "owner_email"}:
+    if not {"domain", "server_ip", "owner_email"} <= set(data) or set(data) - {"domain", "server_ip", "owner_email", "outbound_ip"}:
         raise Rejected(400, "expected_domain_server_ip_owner_email")
     if not all(isinstance(x, str) for x in data.values()):
         raise Rejected(400, "invalid_configuration")
@@ -502,7 +502,15 @@ def validate(data):
     email = data["owner_email"].strip()
     if len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         raise Rejected(400, "invalid_owner_email")
-    return {"domain": domain, "server_ip": str(ip), "owner_email": email}
+    result = {"domain": domain, "server_ip": str(ip), "owner_email": email}
+    if data.get("outbound_ip", "").strip():
+        try:
+            outbound = ipaddress.ip_address(data["outbound_ip"].strip())
+        except ValueError:
+            raise Rejected(400, "invalid_outbound_ip")
+        if not outbound.is_global:raise Rejected(400, "outbound_ip_must_be_public")
+        result["outbound_ip"] = str(outbound)
+    return result
 
 
 class App:

@@ -77,3 +77,15 @@ class ServiceAuthorization(unittest.TestCase):
             self.assertEqual(error.exception.code,'service_plan_changed_review_again')
             self.assertFalse((Path(directory)/'installation').exists())
             with self.assertRaises(Rejected):setup.call('POST','/v1/setup/services/credentials',owner,{})
+
+class OutgoingAddress(unittest.TestCase):
+    def test_separate_egress_is_in_spf_but_does_not_change_inbound_record(self):
+        from hermesaki.setup_services import records_for
+        from hermesaki.setup import validate,Rejected
+        settings=validate({'domain':'example.com','server_ip':'2606:4700::1111','owner_email':'hi@example.com','outbound_ip':'1.1.1.1'})
+        records=records_for(settings)
+        self.assertEqual(records[0]['type'],'AAAA')
+        self.assertEqual(records[0]['content'],'2606:4700::1111')
+        self.assertEqual(records[2]['content'],'v=spf1 ip6:2606:4700::1111 ip4:1.1.1.1 -all')
+        with self.assertRaises(Rejected):validate(dict(settings,outbound_ip='127.0.0.1'))
+        self.assertNotIn('outbound_ip',validate(dict(settings,outbound_ip='')))

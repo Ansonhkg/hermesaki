@@ -38,10 +38,13 @@ def validate_options(data, settings):
 
 def records_for(settings):
     domain, address = settings['domain'], ipaddress.ip_address(settings['server_ip'])
+    outbound = ipaddress.ip_address(settings.get('outbound_ip',settings['server_ip']))
+    allowed = list(dict.fromkeys([str(address),str(outbound)]))
+    spf = 'v=spf1 ' + ' '.join(('ip4:' if ipaddress.ip_address(ip).version == 4 else 'ip6:')+ip for ip in allowed) + ' -all'
     return [
         {'type': 'A' if address.version == 4 else 'AAAA', 'name': 'mail.'+domain, 'content': str(address), 'proxied': False, 'ttl': 300},
         {'type': 'MX', 'name': domain, 'content': 'mail.'+domain, 'priority': 10, 'ttl': 300},
-        {'type': 'TXT', 'name': domain, 'content': 'v=spf1 '+('ip4:' if address.version == 4 else 'ip6:')+str(address)+' -all', 'ttl': 300},
+        {'type': 'TXT', 'name': domain, 'content': spf, 'ttl': 300},
         {'type': 'TXT', 'name': '_dmarc.'+domain, 'content': 'v=DMARC1; p=none', 'ttl': 300},
     ]
 
