@@ -17,6 +17,7 @@ from .setup_services import Services, DeploymentError, dns_plan, private_write
 from .setup_runtime import Runtime
 from .setup_verify import verify as verify_services
 from .setup_handover import handover
+from .setup_agent import verify as verify_agent
 from .setup_network import issue as issue_network, accept as accept_network
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
@@ -38,6 +39,7 @@ class Setup:
         self.directory.chmod(0o700)
         self.database = self.directory / "setup.sqlite"
         with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS agent_verification (id INTEGER PRIMARY KEY CHECK(id=1), result TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS network_probe (id INTEGER PRIMARY KEY CHECK(id=1), challenge TEXT, result TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS completion (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS verification (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
@@ -117,6 +119,17 @@ class Setup:
                 db.execute("UPDATE network_probe SET challenge=NULL,result=? WHERE id=1",(json.dumps(result),))
                 db.execute("DELETE FROM verification")
                 return result
+            if method == "POST" and path == "/v1/setup/agent/verify":
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409,"deploy_services_first")
+                try:
+                    result = verify_agent(Runtime(Services(self.directory)),json.loads(row["settings"]),json.loads(saved["plan"]),data)
+                except ValueError as error:
+                    raise Rejected(400,str(error))
+                db.execute("INSERT OR REPLACE INTO agent_verification VALUES(1,?)",(json.dumps(result),))
+                db.execute("DELETE FROM verification")
+                return result
             if method == "POST" and path == "/v1/setup/complete":
                 saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
                 if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
@@ -128,7 +141,7 @@ class Setup:
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 # Re-run actual checks; saved JSON or caller-supplied booleans cannot complete setup.
                 result = verify_services(Runtime(Services(self.directory)), json.loads(row["settings"]), plan,
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal), self.network_result(db))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal), self.network_result(db), self.agent_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)", (json.dumps(result),))
                 db.commit()
                 try:
@@ -154,7 +167,7 @@ class Setup:
                 dkim = db.execute("SELECT progress FROM dkim WHERE id=1").fetchone()
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 result = verify_services(runtime,json.loads(row["settings"]),json.loads(saved["plan"]),
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal), self.network_result(db))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal), self.network_result(db), self.agent_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)",(json.dumps(result),))
                 return result
             if method == "POST" and path == "/v1/setup/services/credentials":
@@ -305,6 +318,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 db.execute("DELETE FROM verification")
                 db.execute("DELETE FROM renewal")
                 db.execute("DELETE FROM network_probe")
+                db.execute("DELETE FROM agent_verification")
                 acme_credential = self.directory / "installation/certbot-secret/cloudflare.ini"
                 if acme_credential.exists():
                     private_write(acme_credential, "dns_cloudflare_api_token = " + raw + "\n")
@@ -355,6 +369,10 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 return self.next_actions(result)
             raise Rejected(404, "not_found")
 
+    def agent_result(self, db):
+        row = db.execute("SELECT result FROM agent_verification WHERE id=1").fetchone()
+        return json.loads(row["result"]) if row else None
+
     def network_result(self, db):
         row = db.execute("SELECT result FROM network_probe WHERE id=1").fetchone()
         return json.loads(row["result"]) if row and row["result"] else None
@@ -381,6 +399,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                     action, method, path = "review_and_deploy_services", "POST", "/v1/setup/services/apply"
                 if (result.get("service_progress") or {}).get("state") == "services_running":
                     action, method, path = "verify_mail_and_access", "POST", "/v1/setup/services/verify"
+                    result["operations"].append({"method":"POST", "path":"/v1/setup/agent/verify"})
                     if (result.get("service_verification") or {}).get("ready"):
                         action, method, path = "complete_setup", "POST", "/v1/setup/complete"
                 result["state"] = "web_resources_applied"

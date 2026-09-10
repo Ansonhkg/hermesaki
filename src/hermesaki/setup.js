@@ -142,3 +142,11 @@ $('#network-upload').onsubmit=event=>{event.preventDefault();busy(event.target,a
  await request('/v1/setup/network/result','POST',JSON.parse(await file.text()));
  $('#network-result').value='';await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));
 });};
+
+$('#agent-verify').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ const credentials={client_id:$('#agent-client-id').value,client_secret:$('#agent-client-secret').value};
+ $('#agent-client-id').value='';$('#agent-client-secret').value='';
+ const result=await request('/v1/setup/agent/verify','POST',credentials);
+ await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));
+ $('#feedback').textContent=result.detail;
+});};

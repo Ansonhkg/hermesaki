@@ -14,7 +14,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def verify(runtime,settings,plan,dkim_published,renewal_verified,network=None):
+def verify(runtime,settings,plan,dkim_published,renewal_verified,network=None,agent=None):
     checks=[]
     def add(name,state,detail):checks.append({'id':name,'state':state,'detail':detail})
     script='''import json,time,urllib.request
@@ -57,10 +57,11 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
     add('dkim','passed' if dkim_published else 'pending','Public signing records must be reviewed and published.')
     add('renewal','passed' if renewal_verified else 'pending','Run a real ACME renewal dry-run from the setup screen.')
     checks.append(public_dns(settings))
-    for name,detail in (
-        ('external_mail','External send and authenticated reply receipt still need verification.'),
-        ('authenticated_agent','Authorized remote MCP access and denied ungranted operations still need verification.')):
-        add(name,'pending',detail)
+    add('external_mail','pending','External send and authenticated reply receipt still need verification.')
+    if agent and agent.get('plan_id')==plan['id'] and 0<=time.time()-agent.get('checked_at',0)<300:
+        checks.append(agent)
+    else:
+        add('authenticated_agent','pending','Verify the remote agent connection using an authorized Access service token. Results expire after five minutes.')
     if network and network.get('plan_id')==plan['id'] and 0<=time.time()-network.get('checked_at',0)<86400:
         network=dict(network)
         if network['state']=='passed':

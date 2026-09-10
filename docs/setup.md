@@ -110,3 +110,21 @@ Unattended Cloudflare Access verification also requires the setup API credential
 to have **Access: Service Tokens Write** in the selected account. Listing service
 tokens does not prove permission to create them. The deployed mailbox still
 requires its own scoped token after Access authentication.
+
+### Verify the remote agent connection
+
+After services are running, use **Check agent access** with an Access service
+client ID and secret authorized for the operator hostname. The matching API is
+`POST /v1/setup/agent/verify` with `client_id` and `client_secret` in the JSON body,
+authenticated with the setup owner credential. Never put credentials in URLs.
+
+The check calls the public MCP endpoint with a temporary read-only mailbox token.
+It verifies folder access, refusal of a send operation, and rejection of an
+invalid mailbox token. The send probe has no recipients and sends no email.
+The mailbox token is revoked afterward and expires after two minutes if cleanup
+cannot run. Access credentials are not persisted by this endpoint. The sanitized
+result is bound to the deployment plan and expires after five minutes; rerun it
+before completing setup. Rotating the Cloudflare setup credential invalidates it.
+
+This verifies the remote transport and read-only boundary. External mail delivery,
+write-enabled sending and full fresh-install acceptance remain separate checks.
