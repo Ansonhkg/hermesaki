@@ -6,6 +6,7 @@ import urllib.parse
 import urllib.request
 from .setup_services import DeploymentError
 from .setup_cloudflare import web_hosts
+from .setup_dns import public_dns
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -54,8 +55,8 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
     except (DeploymentError,ValueError,TypeError):add('origin_ports','failed','Actual published ports could not be verified.')
     add('dkim','passed' if dkim_published else 'pending','Public signing records must be reviewed and published.')
     add('renewal','passed' if renewal_verified else 'pending','Run a real ACME renewal dry-run from the setup screen.')
+    checks.append(public_dns(settings))
     for name,detail in (
-        ('public_mail_dns','Public DNS propagation and mail authentication still need verification.'),
         ('external_mail','External send and authenticated reply receipt still need verification.'),
         ('authenticated_agent','Authorized remote MCP access and denied ungranted operations still need verification.'),
         ('provider_network','Public SMTP reachability and matching PTR still need verification.')):

@@ -69,3 +69,20 @@ For an explicit public certificate check, inject `HERMESAKI_SETUP` privately and
 `POST /v1/setup/services/verify` and the installation check button report actual private mailbox/TLS, webmail, anonymous Access redirects, Docker-published ports, and saved DKIM/renewal checks. Public mail DNS, external mail, authenticated remote agent access and provider-network checks remain explicitly pending until their verification paths are completed. `POST /v1/setup/services/renewal-check` runs a real ACME dry-run. Replacing the Cloudflare credential invalidates the saved verification and renewal results and updates the privately mounted renewal credential.
 
 New setups using a subdomain of a Cloudflare zone automatically choose single-label web names in that zone, such as `inbox-trial.example.com` and `hermesaki-trial.example.com` for mail domain `trial.example.com`. This keeps web endpoints within the default Cloudflare certificate coverage. The mail hostname remains `mail.trial.example.com` and uses its separately issued ACME certificate. Existing saved/provisioned plans retain their original hostnames. The service planner checks the actual HTTPS Access redirect before allowing deployment, so an unavailable certificate or incorrect Access team is reported before startup.
+
+## Completion handover
+
+`POST /v1/setup/complete` requires the exact service plan ID as
+`confirm_plan_id`. It runs verification again rather than accepting saved or
+caller-supplied success flags. Every required check must be present exactly once,
+passed, and fresh. Pending, failed, missing or stale checks reject completion.
+Successful completion persists across setup restarts and retires setup mutations.
+The authenticated setup status returns the normal operator, webmail and MCP URLs
+without secrets. Save operator and mailbox credentials before finishing.
+
+The setup page exposes the same finish action only when verification is ready.
+Public A/AAAA, MX, SPF and DMARC records now use actual resolver observations.
+External mail, authenticated remote-agent and external network verification are
+still pending in the current implementation, so this new gate does not yet make a
+full fresh production setup completable. Tests of the gate use explicit verifier
+fixtures and are not evidence that those public checks passed.

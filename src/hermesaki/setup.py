@@ -16,6 +16,7 @@ from .setup_preflight import host_checks
 from .setup_services import Services, DeploymentError, dns_plan, private_write
 from .setup_runtime import Runtime
 from .setup_verify import verify as verify_services
+from .setup_handover import handover
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 
@@ -36,6 +37,7 @@ class Setup:
         self.directory.chmod(0o700)
         self.database = self.directory / "setup.sqlite"
         with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS completion (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS verification (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS renewal (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS dkim (id INTEGER PRIMARY KEY CHECK(id=1), plan TEXT NOT NULL, progress TEXT)")
@@ -91,6 +93,32 @@ class Setup:
                 return {"claimed": True, "next_action": "configure"}
             if not row["owner"] or not token or not hmac.compare_digest(digest(token), row["owner"]):
                 raise Rejected(401, "owner_required")
+            completed = db.execute("SELECT value FROM completion WHERE id=1").fetchone()
+            if completed:
+                if method == "GET" and path == "/v1/setup":
+                    return json.loads(completed["value"])
+                raise Rejected(409, "setup_completed_use_operator")
+            if method == "POST" and path == "/v1/setup/complete":
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409, "deploy_services_first")
+                plan = json.loads(saved["plan"])
+                if data != {"confirm_plan_id":plan["id"]}:
+                    raise Rejected(409, "exact_plan_confirmation_required")
+                dkim = db.execute("SELECT progress FROM dkim WHERE id=1").fetchone()
+                renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
+                # Re-run actual checks; saved JSON or caller-supplied booleans cannot complete setup.
+                result = verify_services(Runtime(Services(self.directory)), json.loads(row["settings"]), plan,
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal))
+                db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)", (json.dumps(result),))
+                db.commit()
+                try:
+                    complete = handover(result, json.loads(row["settings"]), plan["id"])
+                except ValueError as error:
+                    raise Rejected(409, str(error))
+                db.execute("INSERT INTO completion VALUES(1,?)", (json.dumps(complete),))
+                (self.directory / "bootstrap-token").unlink(missing_ok=True)
+                return complete
             if method == "POST" and path in ("/v1/setup/services/verify", "/v1/setup/services/renewal-check"):
                 saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
                 if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
@@ -328,7 +356,9 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 if result.get("service_plan"):
                     action, method, path = "review_and_deploy_services", "POST", "/v1/setup/services/apply"
                 if (result.get("service_progress") or {}).get("state") == "services_running":
-                    action, method, path = "verify_mail_and_access", None, None
+                    action, method, path = "verify_mail_and_access", "POST", "/v1/setup/services/verify"
+                    if (result.get("service_verification") or {}).get("ready"):
+                        action, method, path = "complete_setup", "POST", "/v1/setup/complete"
                 result["state"] = "web_resources_applied"
                 for name in ("dns", "tunnel", "access"):
                     checks[name].update(state="configured", detail="Remote web resources checked; running services and edge access still require verification.")

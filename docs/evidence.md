@@ -106,3 +106,12 @@ read-only sending denied and the temporary write token revoked. This was not a
 remote MCP-through-Access test, nor proof of external inbox placement.
 Private evidence is under `.runtime/reinstall`. Clean setup forms/API completion
 and final handover remain outstanding; this does not establish 100% acceptance.
+
+### Completion gate implementation
+
+Added a fail-closed completion endpoint, persisted handover, disabled setup
+mutations after completion, normal-operation links, and public mail DNS lookups.
+60 unit tests pass, including denial of incomplete/stale proofs, exact-plan and
+owner enforcement, live recheck invocation and persistence of retired setup.
+Both setup and provider browser regression suites pass. The completion test uses
+an explicit verification fixture. Full public setup acceptance is still pending.

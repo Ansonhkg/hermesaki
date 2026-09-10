@@ -6,7 +6,18 @@ async function request(path, method='GET', data, credential=token) {
   if (!response.ok) throw new Error(result.error.replaceAll('_',' '));
   return result;
 }
+function renderComplete(state) {
+    for(const el of document.querySelectorAll('main > section'))el.hidden=true;
+    const section=document.createElement('section'),title=document.createElement('h2');
+    title.textContent='Your email is ready';section.append(title);
+    for(const [label,key] of [['Open operator','operator_url'],['Open inbox','webmail_url']]){
+      const link=document.createElement('a');link.textContent=label;link.href=state[key];section.append(link,document.createElement('br'));
+    }
+    const help=document.createElement('p');help.textContent=state.authentication;section.append(help);
+    $('main').append(section);return;
+}
 function render(state) {
+  if(state.complete){renderComplete(state);return;}
   $('#configuration').hidden=false;
   $('#cloudflare').hidden=!state.settings;
   renderProvider(state.cloudflare_plan);
@@ -78,6 +89,7 @@ $('#service-apply').onsubmit=event=>{event.preventDefault();busy(event.target,as
 const renderServices=render;
 let dkimPlan=null;
 render=function(state){
+ if(state.complete){renderComplete(state);return;}
  renderServices(state);
  $('#dkim').hidden=state.service_progress?.state!=='services_running';
  dkimPlan=state.dkim_plan;
@@ -97,9 +109,22 @@ $('#download-mailbox').onclick=async()=>{
 };
 const renderSigning=render;
 render=function(state){
+ if(state.complete){renderComplete(state);return;}
  renderSigning(state);
  $('#runtime-verification').hidden=state.service_progress?.state!=='services_running';
  $('#runtime-checks').replaceChildren(...(state.service_verification?.checks||[]).map(c=>{const li=document.createElement('li');li.textContent=c.id.replaceAll('_',' ')+' · '+c.state+': '+c.detail;return li;}));
 };
 $('#verify-runtime').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));});};
 $('#verify-renewal').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{await request('/v1/setup/services/renewal-check','POST',{});$('#feedback').textContent='Certificate renewal dry-run passed.';});};
+
+const renderBeforeHandover=render;
+render=function(state){
+ if(state.complete){renderComplete(state);return;}
+ renderBeforeHandover(state);
+ $('#complete-setup').hidden=!state.service_verification?.ready;
+};
+$('#complete-setup').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ if(!servicePlan)throw new Error('A verified service plan is required.');
+ const state=await request('/v1/setup/complete','POST',{confirm_plan_id:servicePlan.id});
+ renderComplete(state);
+});};
