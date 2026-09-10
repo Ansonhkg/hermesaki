@@ -136,3 +136,34 @@ current setup credential can list Access service tokens but creation was denied.
 No service token or policy was created by that failed attempt. The account API
 credential needs Access: Service Tokens Write for this path. External email and
 remote-agent verification remain incomplete.
+
+### Independent public setup journeys, 2026-09-10
+
+Completed two independent installations on isolated test subdomains and separate
+empty data directories on the existing host. The first used the HTTP setup API;
+the second used the app forms, including credential downloads, signed external
+network probe upload, received-message upload, and scoped MCP verification.
+Both returned the persisted `complete` state after all eleven required checks
+passed, then rejected further setup changes. The original production mailbox
+remained running. Both external messages passed SPF, DKIM and DMARC and received
+matching replies. Gmail placed the new test-domain messages in spam; inbox
+placement is not guaranteed by these checks.
+
+The normal operator page and form-based creation of a read-only agent mailbox
+were exercised through Cloudflare Access, including a real MCP connection.
+Temporary Access service credentials and policies were removed after testing.
+A cached PTR on the independent probe host correctly produced a pending result;
+clearing that host's DNS cache and rerunning the real probe resolved it.
+
+Testing also found an unavailable default log-file directory in the mail
+container and an owner-status loading race in the setup form. Fresh provisioning
+now selects container console logging, preserving custom tracers, and the form
+waits for owner status before enabling connection. The operator page links to
+real inbox onboarding and shows service health.
+
+Validation: 84 unit tests pass, and the setup browser regression passes. Changes
+were pushed to the private repository with no CI. Actual screenshots, private
+HTTP transcripts and received originals remain under `.runtime/evidence`.
+Parogres has accepted the plan/apply and operator-handover evidence. The final
+journey and historical recovery evidence remain subject to its verifier/owner
+review; executed tests alone do not establish 100% acceptance.
