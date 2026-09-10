@@ -92,3 +92,17 @@ Outstanding: live scoped provider credentials, full private mail-service/connect
 Live HTTPS verification exposed that nested web names on test subdomains were outside Cloudflare's default certificate coverage. New setup flows now persist flat, certificate-covered web names; existing saved plans retain their names. A real isolated web plan successfully created the corresponding protected endpoints, and the service planner verified the Access redirect. The real browser/HTTP test rejected a deliberately invalid service-plan confirmation. Unit coverage is now 47 tests.
 
 The plan screenshot was submitted to Parogres. The verifier requested stronger before/after and successful authorized-execution evidence, so it did not advance acceptance. That verdict is retained; no owner bypass or percentage change was performed. Full public clean-install verification needs a separate available mail endpoint because the existing production SMTP address is occupied.
+
+### Same-host reinstall, 2026-09-10
+
+Performed an owner-authorized replacement from a fresh encrypted snapshot on the
+existing VPS. An offline restore passed before cutover. Restored into a new
+runtime directory, recreated production containers against that data, and retained
+the original runtime. Switch completed in 13.87 seconds. All three existing domains,
+five folders and four INBOX message UIDs matched. Real browser login succeeded;
+webmail still redirected anonymous public requests through Cloudflare Access.
+A scoped MCP-core send was submitted for the authorized test recipient, with
+read-only sending denied and the temporary write token revoked. This was not a
+remote MCP-through-Access test, nor proof of external inbox placement.
+Private evidence is under `.runtime/reinstall`. Clean setup forms/API completion
+and final handover remain outstanding; this does not establish 100% acceptance.
