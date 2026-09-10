@@ -10,11 +10,19 @@
     "test": "npm run build && node --test packages/client/test/*.test.mjs",
     "test:live": "npm run build && node packages/client/test/live.mjs",
     "test:browser": "node packages/client/test/browser.mjs",
-    "hermesaki": "node packages/client/dist/cli.js"
+    "hermesaki": "node packages/client/dist/cli.js",
+    "demo": "vite --config demo/vite.config.ts",
+    "demo:prepare": "npm run build && tsx demo/prepare.ts"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
     "@types/node": "22.19.0",
-    "playwright": "1.58.2"
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "playwright": "1.58.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vite": "^7.3.6"
   }
 }

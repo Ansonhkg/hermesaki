@@ -304,6 +304,14 @@ class Product(unittest.TestCase):
         with self.assertRaises(Problem):
             self.s.auth(self.raw["token"])
 
+    def test_browser_entry_routes_lead_to_real_sign_in(self):
+        app = App(self.svc)
+        for path in ("/onboarding", "/ui/", "/ui/onboarding/", "/ui/onboarding/index.html"):
+            responses = []
+            app({"PATH_INFO": path, "REQUEST_METHOD": "GET"}, lambda st, h: responses.append((st, dict(h))))
+            self.assertEqual(responses[0][0], "303 See Other")
+            self.assertEqual(responses[0][1]["Location"], "/ui/onboarding/live.html")
+
     def test_http_requires_auth(self):
         statuses = []
         app = App(self.svc)

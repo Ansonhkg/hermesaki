@@ -48,6 +48,9 @@ class App:
                         )
                     except Exception:
                         raise Problem(401, "access_required")
+                if method == "GET" and path in ("/onboarding", "/onboarding/", "/ui/onboarding", "/ui/onboarding/", "/ui/onboarding/index.html", "/ui/", "/ui/index.html"):
+                    start("303 See Other", [("Location", "/ui/onboarding/live.html"), ("Cache-Control", "no-store")])
+                    return [b""]
                 if path.startswith("/ui/") and method == "GET":
                     root = Path(__file__).resolve().parents[2] / "landing"
                     relative = path.removeprefix("/ui/") or "index.html"

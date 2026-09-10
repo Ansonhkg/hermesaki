@@ -1,0 +1,27 @@
+{
+  "name": "demo-walkthrough",
+  "version": "0.4.0",
+  "files": {
+    "AGENT-BRIEF.md": "9c924c08614ec88dd67b25279f02e8a39f804149cb8ccf7606f026cc9a22a493",
+    "README.md": "be78b9d4be65ba2056ce546c3c3017317967968bbab0d0048074e890db57b2ae",
+    "ReplayFrame.tsx": "adc0b9cb7a899c4720f30203ee365ea8743a77fc5f178357fd9bde0b316b574b",
+    "adapter.ts": "e360639da911a9d3fb1d5837c24e44206b6710b0bae2e93bc52d12e0d17a65eb",
+    "bindings.ts": "76aef50b0645de48226504dadddfc1bdc658930cdd44791dc6506804db9a49b5",
+    "bridge.ts": "17105826596f240dfc600ab16d5e4a945b4417c238b669591fe8e456d432a5bd",
+    "contracts.ts": "520666303404cfa99d151614548672c5e219898b9c412d3329eec9a1adfbf72d",
+    "controller.ts": "004d4beae7097f9b7b2e637dfec4f351368d46544db1040a25497cf0393aa429",
+    "controls.tsx": "9e856465ae8c530a0f4c2520d8990fccb428cf65383fb69522326fbb68e0c6c2",
+    "guidance.ts": "1ce7fdcbb2681739b3e9f7ee2240359a32888845062e194cb6132e30ce2a6874",
+    "index.tsx": "15f9b93fe50ac50621dd08a008a5472f93dbb776f837e52518753e95a3ca4bb4",
+    "logo.png": "e5fe7334a11887b83a3d6b41151a16d2ce60f96137290bbaf9db55d4407cc296",
+    "model.ts": "4b93ede889bcb1e5bfac424b5e73486ba5b62e23d97101c43ad0078d61b240eb",
+    "provider.tsx": "8db477ead2d9274c7aa84c3fcea2dc2a55c5886e6e2de92ce651c5f71d459f82",
+    "runner.ts": "70f6169a8b9379794c55333f174b408508584c8cee0db08bdaa4d6f92fea5eea",
+    "snapshot.ts": "6a1173d9e78d140e898c3c1310720ef392b722f552a28c27b5de9f625f2a5c0d",
+    "style.css": "9afd7917451c387a4ded7cde36697381841ddfa3e0e1a94d13b8b5252d75d8be",
+    "sync.mjs": "24e0d80f7b0c00a4c3c21941c8675c2a69375f5c5dbe56c18eeefee3bcd682d2",
+    "targets.ts": "7a53055a05a334cdf7557c60d7849b8de2bbce4e63b71457d5980c5f905536c4",
+    "transport.ts": "1c045c50b34046615dfa571d27e9c57c37e5b33dc5bf3fae3dea1da1b6a72429",
+    "validation.ts": "733505f94a3afe0035f54d1117d7eacc95d2daa8354579d09e6e8c6ee2c7bd33"
+  }
+}
