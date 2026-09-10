@@ -145,3 +145,10 @@ Attempts expire after 24 hours. To start over, explicitly POST
 `/v1/setup/mail/reset` with `{"confirm_new_test":true}`, then send a new test.
 Resetting clears verification, not mail already sent. Both flows require the
 installation owner and use temporary mailbox credentials that are revoked.
+
+For an adopted mail installation that already serves another hostname,
+`HERMESAKI_CERTIFICATE_HOST` on the certificate sync service selects an additional
+exact hostname from its certificate. Sync adds or updates only that certificate,
+verifies its served leaf through the private mail connection, and preserves the
+primary certificate files. A certificate without that exact DNS name is rejected
+before making management changes. Each hostname has a separate sync marker.
