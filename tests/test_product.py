@@ -310,7 +310,7 @@ class Product(unittest.TestCase):
             responses = []
             app({"PATH_INFO": path, "REQUEST_METHOD": "GET"}, lambda st, h: responses.append((st, dict(h))))
             self.assertEqual(responses[0][0], "303 See Other")
-            self.assertEqual(responses[0][1]["Location"], "/ui/onboarding/live.html")
+            self.assertEqual(responses[0][1]["Location"], "/inboxes")
 
     def test_http_requires_auth(self):
         statuses = []

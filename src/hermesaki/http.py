@@ -49,7 +49,7 @@ class App:
                     except Exception:
                         raise Problem(401, "access_required")
                 if method == "GET" and path in ("/onboarding", "/onboarding/", "/ui/onboarding", "/ui/onboarding/", "/ui/onboarding/index.html", "/ui/", "/ui/index.html"):
-                    start("303 See Other", [("Location", "/ui/onboarding/live.html"), ("Cache-Control", "no-store")])
+                    start("303 See Other", [("Location", "/inboxes"), ("Cache-Control", "no-store")])
                     return [b""]
                 if path.startswith("/ui/") and method == "GET":
                     root = Path(__file__).resolve().parents[2] / "landing"
@@ -78,7 +78,7 @@ class App:
                         ],
                     )
                     return [file.read_bytes()]
-                if path == "/" and method == "GET":
+                if path in ("/", "/login", "/inboxes", "/agents", "/activity") and method == "GET":
                     body = Path(__file__).with_name("operator.html").read_bytes()
                     start(
                         "200 OK",
@@ -86,7 +86,7 @@ class App:
                             ("Content-Type", "text/html; charset=utf-8"),
                             (
                                 "Content-Security-Policy",
-                                "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
+                                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
                             ),
                             ("Cache-Control", "no-store"),
                         ],

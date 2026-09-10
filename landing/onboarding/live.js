@@ -1,10 +1,11 @@
 import {Hermesaki} from '../client.js';
-const $=s=>document.querySelector(s);
+export function mountInbox(root,raw){
+const $=s=>root.querySelector(s);
 let owner, mailbox, settings, inbox, token, offset=0, tokenOffset=0, busy=false, generation=0;
 function show(id){for(const x of ['login','create','connect'])$('#'+x).hidden=x!==id;}
 function notice(text,error=false){$('#status').textContent=text;$('#status').className=error?'error':'';}
 const errors={token_required:'Enter your operator token or choose the credentials file downloaded during setup.',invalid_token:'This token is invalid, expired or revoked. To sign in, use the operator_token from the credentials file downloaded when setup finished, or choose that file below. For an agent token, sign in as the operator, open the inbox and select Issue mailbox token.',scope_denied:'This token does not have the required permission.',mailbox_denied:'This token belongs to another inbox.',connection_failed:'Could not reach the server. Check your connection and retry.',service_unavailable:'The mail service is unavailable. Your inbox address is preserved; retry when it is back.',invalid_address:'Use a valid address on this server’s domain.',access_required:'Sign in through Cloudflare Access, then retry.'};
-async function run(label,fn){if(busy)return;busy=true;notice(label);$('#status').className='busy';$('.wizard').setAttribute('aria-busy','true');document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();if($('#status').className==='busy')notice('');}catch(e){notice(errors[e.code]||'Could not complete that action. Check the details and retry.',true);}finally{busy=false;$('.wizard').setAttribute('aria-busy','false');document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+async function run(label,fn){if(busy)return;busy=true;notice(label);$('#status').className='busy';$('.wizard').setAttribute('aria-busy','true');root.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();if($('#status').className==='busy')notice('');}catch(e){notice(errors[e.code]||'Could not complete that action. Check the details and retry.',true);}finally{busy=false;$('.wizard').setAttribute('aria-busy','false');root.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 function client(raw){return new Hermesaki({baseUrl:location.origin,token:raw});}
 $('#token-file').onchange=async()=>{const f=$('#token-file').files[0];if(f&&f.size<16384){let value=(await f.text()).trim();try{const data=JSON.parse(value);value=data.operator_token||'';}catch{}if(!value){notice('This file has no operator token. Choose the credentials file from setup.',true);return;}$('#owner-token').value=value;}};
 $('#login-form').onsubmit=e=>{e.preventDefault();run('Checking owner access…',async()=>{const candidate=client($('#owner-token').value.trim());settings=await candidate.settings();owner=candidate;$('#owner-token').value='';$('#token-file').value='';$('#environment').textContent=settings.mode==='development'?'Local mail. External recipients are captured.':'Live mail server.';$('#domain').textContent='@'+settings.domain;$('#logout').hidden=false;await list();show('create');});};
@@ -29,3 +30,8 @@ $('#more').onclick=()=>run('Loading inboxes…',()=>list(true));$('#refresh').on
 $('#back').onclick=()=>run('Loading inboxes…',async()=>{generation++;testKey=undefined;token=null;mailbox=null;$('#mail-token').value='';show('create');await list();});
 $('#delete').onclick=()=>run('Deleting inbox…',async()=>{if($('#delete-email').value!==inbox.email){notice('Type the exact email address to confirm deletion.',true);return;}await owner.deleteInbox(inbox.id,$('#delete-email').value);token=null;mailbox=null;$('#mail-token').value='';show('create');await list();});
 $('#logout').onclick=()=>{generation++;owner=null;mailbox=null;token=null;$('#mail-token').value='';$('#logout').hidden=true;$('#inboxes').replaceChildren();$('#messages').replaceChildren();$('#message-body').textContent='';show('login');notice('Disconnected.');};
+
+if(raw){$('#owner-token').value=raw;$('#login-form').dispatchEvent(new Event('submit',{cancelable:true}));}
+
+}
+if(!document.querySelector('#inbox-app'))mountInbox(document,'');
