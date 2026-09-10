@@ -128,3 +128,20 @@ before completing setup. Rotating the Cloudflare setup credential invalidates it
 
 This verifies the remote transport and read-only boundary. External mail delivery,
 write-enabled sending and full fresh-install acceptance remain separate checks.
+
+External delivery verification is available through the setup forms and API.
+After services start, POST `/v1/setup/mail/start` with
+`{"confirm_recipient":"you@external.example"}` to send one test to an inbox you
+control on another domain. Repeating that request returns the same attempt.
+Reply from that external inbox, download the original received test message,
+and POST `/v1/setup/mail/verify` with `{"original":"<original message text>"}`.
+The check matches the message ID, sender, recipient and subject, checks the
+receiving provider's SPF/DKIM/DMARC report, and confirms the matching reply in
+Stalwart and submitted job in Hermesaki. The original is limited to 12 KB and
+is not retained. This is an owner-supplied provider report, not independent
+cryptographic attestation. A submission to SMTP alone never passes the check.
+
+Attempts expire after 24 hours. To start over, explicitly POST
+`/v1/setup/mail/reset` with `{"confirm_new_test":true}`, then send a new test.
+Resetting clears verification, not mail already sent. Both flows require the
+installation owner and use temporary mailbox credentials that are revoked.

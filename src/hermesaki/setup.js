@@ -150,3 +150,20 @@ $('#agent-verify').onsubmit=event=>{event.preventDefault();busy(event.target,asy
  await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));
  $('#feedback').textContent=result.detail;
 });};
+
+$('#mail-test-start').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ const result=await request('/v1/setup/mail/start','POST',{confirm_recipient:$('#mail-test-recipient').value});
+ $('#feedback').textContent='Verification queued for '+result.recipient+'. Reply to “'+result.subject+'”, then upload its original from that inbox. Repeating this action does not send another message.';
+});};
+$('#mail-test-verify').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ const file=$('#mail-original').files[0];if(!file||file.size>12000)throw new Error('Choose the original test message under 12 KB.');
+ const original=await file.text();$('#mail-original').value='';
+ const result=await request('/v1/setup/mail/verify','POST',{original});
+ await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));$('#feedback').textContent=result.detail;
+});};
+
+$('#mail-test-reset').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ await request('/v1/setup/mail/reset','POST',{confirm_new_test:$('#confirm-mail-reset').checked});
+ $('#confirm-mail-reset').checked=false;
+ $('#feedback').textContent='Previous verification cleared. Enter an external recipient and send a new test.';
+})};

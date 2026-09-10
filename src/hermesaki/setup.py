@@ -18,6 +18,7 @@ from .setup_runtime import Runtime
 from .setup_verify import verify as verify_services
 from .setup_handover import handover
 from .setup_agent import verify as verify_agent
+from .setup_mail import validate_recipient, start as start_mail, verify as verify_mail
 from .setup_network import issue as issue_network, accept as accept_network
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
@@ -39,6 +40,7 @@ class Setup:
         self.directory.chmod(0o700)
         self.database = self.directory / "setup.sqlite"
         with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS mail_verification (id INTEGER PRIMARY KEY CHECK(id=1), attempt TEXT NOT NULL, session TEXT, result TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS agent_verification (id INTEGER PRIMARY KEY CHECK(id=1), result TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS network_probe (id INTEGER PRIMARY KEY CHECK(id=1), challenge TEXT, result TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS completion (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
@@ -119,6 +121,41 @@ class Setup:
                 db.execute("UPDATE network_probe SET challenge=NULL,result=? WHERE id=1",(json.dumps(result),))
                 db.execute("DELETE FROM verification")
                 return result
+            if method == "POST" and path in ("/v1/setup/mail/start", "/v1/setup/mail/verify", "/v1/setup/mail/reset"):
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409,"deploy_services_first")
+                plan=json.loads(saved["plan"])
+                current=db.execute("SELECT * FROM mail_verification WHERE id=1").fetchone()
+                runtime=Runtime(Services(self.directory))
+                try:
+                    if path.endswith("/reset"):
+                        if data != {"confirm_new_test": True}:raise ValueError("confirm_new_test_required")
+                        db.execute("DELETE FROM mail_verification")
+                        db.execute("DELETE FROM verification")
+                        return {"state":"ready"}
+                    if path.endswith("/start"):
+                        if set(data)!={"confirm_recipient"}:raise ValueError("confirm_external_recipient")
+                        validate_recipient(plan,data["confirm_recipient"])
+                        if current:
+                            attempt=json.loads(current["attempt"])
+                            if attempt["recipient"]!=data["confirm_recipient"]:raise ValueError("test_already_started_for_another_recipient")
+                            if current["session"]:return json.loads(current["session"])
+                        else:
+                            attempt={"key":secrets.token_hex(12),"recipient":data["confirm_recipient"]}
+                            db.execute("INSERT INTO mail_verification VALUES(1,?,NULL,NULL)",(json.dumps(attempt),))
+                            db.commit()
+                        session=start_mail(runtime,plan,attempt["recipient"],attempt["key"])
+                        db.execute("UPDATE mail_verification SET session=? WHERE id=1",(json.dumps(session),))
+                        return session
+                    if not current or not current["session"]:raise ValueError("send_external_test_first")
+                    if set(data)!={"original"}:raise ValueError("external_original_required")
+                    result=verify_mail(runtime,json.loads(current["session"]),data["original"])
+                    db.execute("UPDATE mail_verification SET result=? WHERE id=1",(json.dumps(result),))
+                    db.execute("DELETE FROM verification")
+                    return result
+                except ValueError as error:raise Rejected(400,str(error))
+                except DeploymentError:raise Rejected(409,"external_mail_check_unavailable_retry")
             if method == "POST" and path == "/v1/setup/agent/verify":
                 saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
                 if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
@@ -141,7 +178,7 @@ class Setup:
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 # Re-run actual checks; saved JSON or caller-supplied booleans cannot complete setup.
                 result = verify_services(Runtime(Services(self.directory)), json.loads(row["settings"]), plan,
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal), self.network_result(db), self.agent_result(db))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal), self.network_result(db), self.agent_result(db), self.mail_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)", (json.dumps(result),))
                 db.commit()
                 try:
@@ -167,7 +204,7 @@ class Setup:
                 dkim = db.execute("SELECT progress FROM dkim WHERE id=1").fetchone()
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 result = verify_services(runtime,json.loads(row["settings"]),json.loads(saved["plan"]),
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal), self.network_result(db), self.agent_result(db))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal), self.network_result(db), self.agent_result(db), self.mail_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)",(json.dumps(result),))
                 return result
             if method == "POST" and path == "/v1/setup/services/credentials":
@@ -319,6 +356,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 db.execute("DELETE FROM renewal")
                 db.execute("DELETE FROM network_probe")
                 db.execute("DELETE FROM agent_verification")
+                db.execute("UPDATE mail_verification SET result=NULL")
                 acme_credential = self.directory / "installation/certbot-secret/cloudflare.ini"
                 if acme_credential.exists():
                     private_write(acme_credential, "dns_cloudflare_api_token = " + raw + "\n")
@@ -369,6 +407,10 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 return self.next_actions(result)
             raise Rejected(404, "not_found")
 
+    def mail_result(self, db):
+        row = db.execute("SELECT result FROM mail_verification WHERE id=1").fetchone()
+        return json.loads(row["result"]) if row and row["result"] else None
+
     def agent_result(self, db):
         row = db.execute("SELECT result FROM agent_verification WHERE id=1").fetchone()
         return json.loads(row["result"]) if row else None
@@ -399,7 +441,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                     action, method, path = "review_and_deploy_services", "POST", "/v1/setup/services/apply"
                 if (result.get("service_progress") or {}).get("state") == "services_running":
                     action, method, path = "verify_mail_and_access", "POST", "/v1/setup/services/verify"
-                    result["operations"].append({"method":"POST", "path":"/v1/setup/agent/verify"})
+                    result["operations"].extend({"method":"POST", "path":p} for p in ("/v1/setup/agent/verify","/v1/setup/mail/start","/v1/setup/mail/verify"))
                     if (result.get("service_verification") or {}).get("ready"):
                         action, method, path = "complete_setup", "POST", "/v1/setup/complete"
                 result["state"] = "web_resources_applied"

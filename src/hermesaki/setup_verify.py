@@ -14,7 +14,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def verify(runtime,settings,plan,dkim_published,renewal_verified,network=None,agent=None):
+def verify(runtime,settings,plan,dkim_published,renewal_verified,network=None,agent=None,mail=None):
     checks=[]
     def add(name,state,detail):checks.append({'id':name,'state':state,'detail':detail})
     script='''import json,time,urllib.request
@@ -57,7 +57,10 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
     add('dkim','passed' if dkim_published else 'pending','Public signing records must be reviewed and published.')
     add('renewal','passed' if renewal_verified else 'pending','Run a real ACME renewal dry-run from the setup screen.')
     checks.append(public_dns(settings))
-    add('external_mail','pending','External send and authenticated reply receipt still need verification.')
+    if mail and mail.get('plan_id')==plan['id'] and 0<=time.time()-mail.get('checked_at',0)<86400:
+        checks.append(mail)
+    else:
+        add('external_mail','pending','Send the external test, reply to it and upload the received original to verify authentication.')
     if agent and agent.get('plan_id')==plan['id'] and 0<=time.time()-agent.get('checked_at',0)<300:
         checks.append(agent)
     else:
