@@ -1,0 +1,62 @@
+"""Observed deployment readiness. Never converts an untested check into success."""
+import json
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from .setup_services import DeploymentError
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,*args,**kwargs):return None
+
+
+def verify(runtime,settings,plan,dkim_published,renewal_verified):
+    checks=[]
+    def add(name,state,detail):checks.append({'id':name,'state':state,'detail':detail})
+    script='''import json,time,urllib.request
+from pathlib import Path
+from hermesaki.http import create_app
+app=create_app();s=app.s.store
+account=json.loads(Path('/state/first-mailbox.json').read_text())
+folders=app.s.mail.folders(s.inbox(account['id']))
+health=Path('/state/certificate-health.json')
+print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http://webmail/',timeout=10).status,'certificate':json.loads(health.read_text()) if health.exists() else None}))
+'''
+    try:
+        result=json.loads(runtime.dc('exec','-T','api','python','-',stdin=script))
+        add('mailbox','passed' if result['mailbox'] else 'failed','Mailbox login and folders checked over verified TLS.')
+        add('webmail','passed' if result['webmail']==200 else 'failed','Private webmail responds.')
+        certificate=result.get('certificate') or {}
+        good=certificate.get('status')=='verified' and time.time()-certificate.get('checked_at',0)<180
+        add('tls','passed' if good else 'pending','Certificate sync must recently verify the served certificate.')
+    except (DeploymentError,ValueError,KeyError):
+        add('mailbox','failed','Private mailbox or webmail check failed; retry after services are healthy.')
+        add('webmail','pending','Private webmail is not yet verified.')
+        add('tls','pending','Served certificate has not been verified.')
+    protected=True
+    for host in ('inbox.'+settings['domain'],'hermesaki.'+settings['domain']):
+        try:
+            urllib.request.build_opener(NoRedirect()).open('https://'+host,timeout=15)
+            protected=False
+        except urllib.error.HTTPError as error:
+            expected='https://'+plan['options']['access_team']+'.cloudflareaccess.com/'
+            if error.code not in (301,302,303,307,308) or not error.headers.get('Location','').startswith(expected):protected=False
+        except (OSError,ValueError):protected=False
+    add('anonymous_access','passed' if protected else 'failed','Both web hostnames must redirect anonymous visitors to the configured Access team.')
+    try:
+        output=runtime.dc('ps','--format','json').strip()
+        rows=json.loads(output) if output.startswith('[') else [json.loads(line) for line in output.splitlines()]
+        exposed=[p for row in rows for p in (row.get('Publishers') or []) if p.get('PublishedPort')]
+        safe=bool(rows) and all(p.get('PublishedPort')==25 for p in exposed)
+        add('origin_ports','passed' if safe else 'failed','Docker must publish only SMTP port 25; no direct HTTP origin.')
+    except (DeploymentError,ValueError,TypeError):add('origin_ports','failed','Actual published ports could not be verified.')
+    add('dkim','passed' if dkim_published else 'pending','Public signing records must be reviewed and published.')
+    add('renewal','passed' if renewal_verified else 'pending','Run a real ACME renewal dry-run from the setup screen.')
+    for name,detail in (
+        ('public_mail_dns','Public DNS propagation and mail authentication still need verification.'),
+        ('external_mail','External send and authenticated reply receipt still need verification.'),
+        ('authenticated_agent','Authorized remote MCP access and denied ungranted operations still need verification.'),
+        ('provider_network','Public SMTP reachability and matching PTR still need verification.')):
+        add(name,'pending',detail)
+    return {'checks':checks,'ready':all(c['state']=='passed' for c in checks),'complete':False,'checked_at':int(time.time()),'next_action':'resolve_pending_checks'}

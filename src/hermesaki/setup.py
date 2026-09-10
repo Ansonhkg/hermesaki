@@ -1,4 +1,4 @@
-"""Private first-run control plane; does not expose or provision mail yet."""
+"""Private first-run control plane with explicitly authorized fresh mail deployment."""
 import argparse
 import fcntl
 from contextlib import contextmanager
@@ -11,8 +11,11 @@ import re
 import secrets
 import sqlite3
 from pathlib import Path
-from .setup_cloudflare import Cloudflare, CloudflareError
+from .setup_cloudflare import Cloudflare, CloudflareError, fingerprint
 from .setup_preflight import host_checks
+from .setup_services import Services, DeploymentError, dns_plan, private_write
+from .setup_runtime import Runtime
+from .setup_verify import verify as verify_services
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 
@@ -33,6 +36,10 @@ class Setup:
         self.directory.chmod(0o700)
         self.database = self.directory / "setup.sqlite"
         with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS verification (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS renewal (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS dkim (id INTEGER PRIMARY KEY CHECK(id=1), plan TEXT NOT NULL, progress TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS deployment (id INTEGER PRIMARY KEY CHECK(id=1), plan TEXT NOT NULL, progress TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS preflight (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
@@ -84,6 +91,120 @@ class Setup:
                 return {"claimed": True, "next_action": "configure"}
             if not row["owner"] or not token or not hmac.compare_digest(digest(token), row["owner"]):
                 raise Rejected(401, "owner_required")
+            if method == "POST" and path in ("/v1/setup/services/verify", "/v1/setup/services/renewal-check"):
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409, "deploy_services_first")
+                runtime = Runtime(Services(self.directory))
+                if path.endswith("/renewal-check"):
+                    try:
+                        runtime.run(["docker","run","--rm","-v",str(runtime.root/"acme")+":/etc/letsencrypt","-v",str(runtime.root/"certbot-secret")+":/run/hermesaki-certbot:ro",
+                            runtime.lock["certbot"]["image"],"renew","--dry-run","--non-interactive","--no-random-sleep-on-renew"])
+                    except DeploymentError as error:
+                        raise Rejected(409,str(error))
+                    db.execute("INSERT OR REPLACE INTO renewal VALUES(1,?)",(json.dumps({"passed":True}),))
+                    return {"renewal_verified":True,"complete":False}
+                dkim = db.execute("SELECT progress FROM dkim WHERE id=1").fetchone()
+                renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
+                result = verify_services(runtime,json.loads(row["settings"]),json.loads(saved["plan"]),
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal))
+                db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)",(json.dumps(result),))
+                return result
+            if method == "POST" and path == "/v1/setup/services/credentials":
+                saved = db.execute("SELECT progress FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409, "deploy_services_first")
+                script = """from hermesaki.http import create_app
+from pathlib import Path
+import json
+app=create_app();s=app.s.store
+account=json.loads(Path('/state/first-mailbox.json').read_text())
+print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id'])['secret'],account['id']),'operator_token':Path('/state/operator-token').read_text()}))
+"""
+                try:
+                    return json.loads(Runtime(Services(self.directory)).dc("run","--rm","-T","api","python","-",stdin=script))
+                except DeploymentError as error:
+                    raise Rejected(409,str(error))
+            if method == "POST" and path in ("/v1/setup/dkim/plan", "/v1/setup/dkim/apply"):
+                deployment = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not deployment or not deployment["progress"] or json.loads(deployment["progress"]).get("state") != "services_running":
+                    raise Rejected(409, "deploy_services_first")
+                service_plan = json.loads(deployment["plan"])
+                services = Services(self.directory)
+                provider = self.cloudflare((self.directory / "cloudflare-token").read_text())
+                try:
+                    records = json.loads(Runtime(services).dc("run","--rm","-T","api","python","-m","hermesaki.setup_dkim"))
+                    actions, conflicts, observed = dns_plan(provider,service_plan["zone_id"],records)
+                    if path.endswith("/plan"):
+                        plan = {"zone_id":service_plan["zone_id"],"actions":actions,"conflicts":conflicts,"apply_available":not conflicts}
+                        plan["id"] = fingerprint({"records":records,"observed":observed})
+                        db.execute("INSERT OR REPLACE INTO dkim VALUES(1,?,NULL)",(json.dumps(plan),))
+                        return plan
+                    saved = db.execute("SELECT * FROM dkim WHERE id=1").fetchone()
+                    if not saved:raise DeploymentError("dkim_plan_required")
+                    plan = json.loads(saved["plan"])
+                    if data != {"confirm_plan_id":plan["id"]}:raise DeploymentError("exact_plan_confirmation_required")
+                    if conflicts or records != [a["record"] for a in plan["actions"]]:raise DeploymentError("dkim_changed_review_again")
+                    progress = json.loads(saved["progress"]) if saved["progress"] else {}
+                    def checkpoint_dkim(value):
+                        db.execute("UPDATE dkim SET progress=? WHERE id=1",(json.dumps(value),));db.commit()
+                    services.apply_dns(provider,plan,progress,checkpoint_dkim)
+                    progress["state"]="dkim_published";checkpoint_dkim(progress)
+                    return {"state":"dkim_published","complete":False,"next_action":"verify_mail_and_access"}
+                except (DeploymentError, CloudflareError) as error:
+                    raise Rejected(409,str(error))
+            if method == "POST" and path == "/v1/setup/services/apply":
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved:
+                    raise Rejected(409, "service_plan_required")
+                plan = json.loads(saved["plan"])
+                if data != {"confirm_plan_id": plan["id"]}:
+                    raise Rejected(400, "exact_plan_confirmation_required")
+                if not plan["apply_available"]:
+                    raise Rejected(409, "service_plan_has_conflicts")
+                settings = json.loads(row["settings"])
+                provider = self.cloudflare((self.directory / "cloudflare-token").read_text())
+                services = Services(self.directory)
+                progress = json.loads(saved["progress"]) if saved["progress"] else {}
+                def checkpoint_service(value):
+                    db.execute("UPDATE deployment SET progress=? WHERE id=1", (json.dumps(value),))
+                    db.commit()
+                try:
+                    if not progress:
+                        web_plan = json.loads(db.execute("SELECT value FROM plans WHERE id=1").fetchone()[0])
+                        web_progress = json.loads(db.execute("SELECT value FROM progress WHERE id=1").fetchone()[0])
+                        fresh = services.plan(provider, settings, web_plan, web_progress, plan["options"])
+                        if fresh["id"] != plan["id"]:
+                            raise DeploymentError("service_plan_changed_review_again")
+                        checks = host_checks(settings)
+                        required = {"supported_host", "docker", "compose", "public_ip", "smtp_bind"}
+                        passed = {c["id"] for c in checks["checks"] if c["state"] == "passed"}
+                        if not required <= passed:
+                            raise DeploymentError("host_prerequisites_not_met")
+                        progress = {"plan_id":plan["id"], "state":"deploying", "steps":[]}
+                        checkpoint_service(progress)
+                    services.apply_dns(provider, plan, progress, checkpoint_service)
+                    return Runtime(services).apply(settings, plan, progress, checkpoint_service, provider)
+                except (DeploymentError, CloudflareError) as error:
+                    if progress:
+                        progress["error"] = str(error)
+                        checkpoint_service(progress)
+                    raise Rejected(409, str(error))
+            if method == "POST" and path == "/v1/setup/services/plan":
+                saved = db.execute("SELECT value FROM plans WHERE id=1").fetchone()
+                progress = db.execute("SELECT value FROM progress WHERE id=1").fetchone()
+                deployment = db.execute("SELECT progress FROM deployment WHERE id=1").fetchone()
+                if deployment and deployment["progress"]:
+                    raise Rejected(409, "service_deployment_started_cannot_replace_plan")
+                if not saved or not progress:
+                    raise Rejected(409, "apply_web_protection_first")
+                try:
+                    plan = Services(self.directory).plan(self.cloudflare((self.directory / "cloudflare-token").read_text()),
+                        json.loads(row["settings"]), json.loads(saved["value"]), json.loads(progress["value"]), data)
+                except (DeploymentError, CloudflareError) as error:
+                    raise Rejected(409, str(error))
+                db.execute("INSERT OR REPLACE INTO deployment VALUES(1,?,NULL)", (json.dumps(plan),))
+                return plan
             if method == "POST" and path == "/v1/setup/preflight":
                 if not row["settings"]:
                     raise Rejected(409, "configuration_required")
@@ -125,6 +246,11 @@ class Setup:
                     stream.write(raw)
                 temporary.chmod(0o600)
                 os.replace(temporary, file)
+                db.execute("DELETE FROM verification")
+                db.execute("DELETE FROM renewal")
+                acme_credential = self.directory / "installation/certbot-secret/cloudflare.ini"
+                if acme_credential.exists():
+                    private_write(acme_credential, "dns_cloudflare_api_token = " + raw + "\n")
                 if db.execute("SELECT 1 FROM progress").fetchone():
                     saved = db.execute("SELECT value FROM plans WHERE id=1").fetchone()
                     plan = json.loads(saved["value"])
@@ -161,6 +287,14 @@ class Setup:
                 result["provisioning"] = json.loads(progress["value"]) if progress else None
                 preflight = db.execute("SELECT value FROM preflight WHERE id=1").fetchone()
                 result["host_preflight"] = json.loads(preflight["value"]) if preflight else None
+                deployment = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                dkim = db.execute("SELECT * FROM dkim WHERE id=1").fetchone()
+                result["dkim_plan"] = json.loads(dkim["plan"]) if dkim else None
+                result["dkim_progress"] = json.loads(dkim["progress"]) if dkim and dkim["progress"] else None
+                verification = db.execute("SELECT value FROM verification WHERE id=1").fetchone()
+                result["service_verification"] = json.loads(verification["value"]) if verification else None
+                result["service_plan"] = json.loads(deployment["plan"]) if deployment else None
+                result["service_progress"] = json.loads(deployment["progress"]) if deployment and deployment["progress"] else None
                 return self.next_actions(result)
             raise Rejected(404, "not_found")
 
@@ -181,7 +315,11 @@ class Setup:
                 result["state"] = "needs_review"
                 result["validation_failures"] = [{"code":"uncertain_cloudflare_write", "operation":progress["inflight"]}]
             elif progress and progress.get("state") == "web_resources_applied":
-                action, method, path = "deploy_private_services_and_verify", None, None
+                action, method, path = "plan_private_services", "POST", "/v1/setup/services/plan"
+                if result.get("service_plan"):
+                    action, method, path = "review_and_deploy_services", "POST", "/v1/setup/services/apply"
+                if (result.get("service_progress") or {}).get("state") == "services_running":
+                    action, method, path = "verify_mail_and_access", None, None
                 result["state"] = "web_resources_applied"
                 for name in ("dns", "tunnel", "access"):
                     checks[name].update(state="configured", detail="Remote web resources checked; running services and edge access still require verification.")
@@ -206,7 +344,7 @@ class Setup:
                   "settings": settings, "next_action": "verify_infrastructure" if settings else "configure",
                   "checks": [{"id": x, "state": "pending"} for x in pending],
                   "operations": [{"method": "GET", "path": "/v1/setup"}, {"method": "PUT", "path": "/v1/setup/configuration"}],
-                  "limitations": ["Cloudflare web provisioning is available. Mail-service deployment and end-to-end verification remain incomplete."]}
+                  "limitations": ["Fresh mail deployment is available after a separate exact plan approval. Public verification and completion handover remain incomplete."]}
         if settings:
             result["plan"] = {"state": "draft", "changes_applied": False, "domain": settings["domain"],
                 "mail_hostname": "mail." + settings["domain"],

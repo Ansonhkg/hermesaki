@@ -28,6 +28,17 @@ class Cloudflare:
     def __init__(self, token):
         self.token = token
 
+    def validate_access_team(self, hostname, team):
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *args, **kwargs):return None
+        try:
+            urllib.request.build_opener(NoRedirect()).open('https://'+hostname, timeout=15)
+        except urllib.error.HTTPError as error:
+            return error.code in (301,302,303,307,308) and error.headers.get('Location','').startswith('https://'+team+'.cloudflareaccess.com/')
+        except (OSError,ValueError):
+            return False
+        return False
+
     def call(self, method, path, body=None, query=None):
         url = 'https://api.cloudflare.com/client/v4' + path
         if query:

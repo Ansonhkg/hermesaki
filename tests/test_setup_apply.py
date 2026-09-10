@@ -6,6 +6,7 @@ from hermesaki.setup_cloudflare import Cloudflare, CloudflareError
 class Fixture(Cloudflare):
     def __init__(self):
         self.token='fixture';self.tunnels=[];self.apps=[];self.policies={};self.config={'ingress':[{'service':'http_status:404'}]};self.records=[];self.writes=[];self.serial=0
+    def validate_access_team(self,hostname,team):return True  # Explicit external provider fixture.
     def all(self,path,query=None):
         if path=='/zones':return [{'id':'zone','name':'example.com','status':'active','account':{'id':'account'}}]
         if path.endswith('/access/apps'):return copy.deepcopy(self.apps)

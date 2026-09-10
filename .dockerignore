@@ -18,3 +18,9 @@
 !packages/client/
 !packages/client/dist/
 !packages/client/dist/index.js
+!package.json
+!package-lock.json
+!packages/client/package.json
+!packages/client/tsconfig.json
+!packages/client/src/
+!packages/client/src/**

@@ -43,3 +43,60 @@ function renderHost(result){
  $('#host-checks').replaceChildren(...(result?.checks||[]).map(check=>{const li=document.createElement('li');li.textContent=check.id.replaceAll('_',' ')+' · '+check.state+': '+check.detail+(check.state!=='passed'&&check.remedy?' '+check.remedy:'');return li;}));
 }
 $('#preflight').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{renderHost(await request('/v1/setup/preflight','POST',{}));});};
+
+let servicePlan = null;
+const originalRender = render;
+render = function(state) {
+ originalRender(state);
+ $('#services').hidden=state.provisioning?.state!=='web_resources_applied';
+ servicePlan=state.service_plan;
+ $('#service-review').hidden=!servicePlan;
+ if(servicePlan){
+  const planView=$('#service-plan-text');planView.replaceChildren();
+  const description=document.createElement('p');description.textContent='Create '+servicePlan.first_mailbox+'. Only SMTP port 25 is public. Webmail and agent access stay behind Cloudflare.';planView.append(description);
+  const records=document.createElement('ul');for(const action of servicePlan.actions){const li=document.createElement('li');li.textContent=action.operation+' '+action.record.type+' '+action.record.name+' → '+action.record.content;records.append(li);}planView.append(records);
+  for(const conflict of servicePlan.conflicts){const p=document.createElement('p');p.textContent=conflict;planView.append(p);}
+  const tls=document.createElement('p');tls.textContent='Certificate: '+servicePlan.certificate.hostname+' via Let’s Encrypt. Automatic renewal checks every 12 hours.';planView.append(tls);
+  const details=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre');summary.textContent='Full service plan';pre.style.whiteSpace='pre-wrap';pre.style.overflowWrap='anywhere';pre.textContent=JSON.stringify(servicePlan,null,2);details.append(summary,pre);planView.append(details);
+  $('#service-apply-button').disabled=!servicePlan.apply_available;
+ }
+ $('#service-status').textContent=state.service_progress ? (state.service_progress.state+' · '+state.service_progress.stage+(state.service_progress.error?' · '+state.service_progress.error:'')) : '';
+};
+$('#service-settings').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ await request('/v1/setup/services/plan','POST',{access_team:$('#access-team').value.trim(),first_mailbox:$('#first-mailbox').value.trim(),accept_acme_terms:$('#acme-terms').checked});
+ render(await request('/v1/setup'));
+});};
+$('#service-apply').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ if(!servicePlan || !$('#service-confirm').checked)throw new Error('Review and confirm the service plan first.');
+ $('#service-status').textContent='Deploying services. Certificate issuance and image builds can take several minutes. You can reconnect with your owner credential if this page closes.';
+ try{await request('/v1/setup/services/apply','POST',{confirm_plan_id:servicePlan.id});}
+ finally{render(await request('/v1/setup'));}
+});};
+const renderServices=render;
+let dkimPlan=null;
+render=function(state){
+ renderServices(state);
+ $('#dkim').hidden=state.service_progress?.state!=='services_running';
+ dkimPlan=state.dkim_plan;
+ $('#dkim-review').hidden=!dkimPlan;
+ $('#dkim-text').textContent=dkimPlan?JSON.stringify(dkimPlan,null,2):'';
+ $('#dkim-status').textContent=state.dkim_progress?.state||'';
+};
+$('#dkim-plan').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{await request('/v1/setup/dkim/plan','POST',{});render(await request('/v1/setup'));});};
+$('#dkim-apply').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{if(!dkimPlan||!$('#dkim-confirm').checked)throw new Error('Confirm the signing records first.');await request('/v1/setup/dkim/apply','POST',{confirm_plan_id:dkimPlan.id});render(await request('/v1/setup'));});};
+$('#download-mailbox').onclick=async()=>{
+ try{
+  const credentials=await request('/v1/setup/services/credentials','POST',{});
+  const url=URL.createObjectURL(new Blob([JSON.stringify(credentials,null,2)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='hermesaki-mailbox-credentials.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $('#feedback').textContent='Mailbox and operator credentials downloaded. Keep this file private.';
+ }catch(error){$('#feedback').textContent=error.message;}
+};
+const renderSigning=render;
+render=function(state){
+ renderSigning(state);
+ $('#runtime-verification').hidden=state.service_progress?.state!=='services_running';
+ $('#runtime-checks').replaceChildren(...(state.service_verification?.checks||[]).map(c=>{const li=document.createElement('li');li.textContent=c.id.replaceAll('_',' ')+' · '+c.state+': '+c.detail;return li;}));
+};
+$('#verify-runtime').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));});};
+$('#verify-renewal').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{await request('/v1/setup/services/renewal-check','POST',{});$('#feedback').textContent='Certificate renewal dry-run passed.';});};

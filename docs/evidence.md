@@ -76,3 +76,13 @@ Outstanding: live scoped provider credentials, full private mail-service/connect
 - Parogres automatically accepted resource preservation and structured setup-state criteria after screenshot review. Together with first boot and owner bootstrap, four of thirteen criteria are accepted. Initial insufficient screenshot submissions are retained in its journal.
 - Read-only host preflight now reports Docker/Compose, platform, public-IP classification, port binding, external SMTP TCP connectivity and PTR. External inbound verification is explicitly pending. Unit probes of resolved/failure states are simulations; actual host checks were also performed separately.
 - Full wizard service deployment, complete clean-install journeys, external mail, certificate renewal, edge authorization, completion handover and recovery/migration acceptance are still pending. Do not treat this checkpoint as a completed self-hosted installer.
+
+## 2026-09-10: fresh runtime implementation checkpoint
+
+- `PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q`: 46 tests passed.
+- `make setup-provider-browser-test`: real browser with explicit Cloudflare fixture; required web/mail confirmations, DNS/service plan, credential replacement and no browser credential persistence passed.
+- `docker build -f docker/api/Dockerfile -t hermesaki-setup-api:test .`: passed without a host-built TypeScript artifact.
+- `.venv/bin/python scripts/verify_setup_runtime.py`: real isolated Stalwart bootstrap, first-mailbox TLS login and folders, public DKIM export, certificate replacement verified on the wire, repeated sync and repeated deployment passed. No published ports; runtime network has no external delivery.
+- Separate real DNS-01 certificate issuance and ACME renewal dry-run succeeded on an isolated authorized subdomain. The actual private deployment identity and certificate state remain outside Git. This does not prove a full public clean installation.
+- Private artifacts: `.runtime/evidence/setup-runtime-final.log`, `setup-service-plan-fixture.png`, `setup-build.log`, `acme-public-check.log`.
+- Full public installation, completed setup handover and remaining approved Parogres criteria are still pending. No percentage was assigned from these checks.

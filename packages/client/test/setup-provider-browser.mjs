@@ -35,7 +35,14 @@ try{
  assert.equal(await page.locator('#confirm-plan').isChecked(),false);
  await page.locator('#apply-plan button').click();assert.equal(await page.locator('#apply-state').textContent(),'');
  await page.locator('#confirm-plan').check();await page.locator('#apply-plan button').click();await page.locator('#apply-state').filter({hasText:'web resources applied'}).waitFor();
+ await page.locator('#services').waitFor({state:'visible'});
+ await page.locator('#access-team').fill('fixture-team');await page.locator('#first-mailbox').fill('hi@example.com');await page.locator('#acme-terms').check();
+ await page.locator('#service-settings button').click();await page.locator('#service-review').waitFor({state:'visible'});
+ assert.match(await page.locator('#service-plan-text').textContent(),/Only SMTP port 25 is public/);
+ assert.equal(await page.locator('#service-confirm').isChecked(),false);
+ await page.locator('#service-apply-button').click();assert.equal(await page.locator('#service-status').textContent(),'');
+ await page.locator('#services').scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/evidence/setup-service-plan-fixture.png'});
  await page.locator('#provider-token').fill('replacement-credential-123456789');await page.locator('#provider button').click();await page.locator('#feedback').filter({hasText:'Cloudflare read checks passed'}).waitFor();
  assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
- console.log('PASS provider UI with explicit upstream fixture: rejected token, plan, required confirmation, apply, credential replacement, no browser secret persistence');
+ console.log('PASS provider UI with explicit upstream fixture: rejected token, plan, required confirmation, apply, full mail service plan, required service confirmation, credential replacement, no browser secret persistence');
 }finally{await browser?.close();const exited=new Promise(r=>server.once('exit',r));server.kill();await exited;await rm(directory,{recursive:true,force:true});}
