@@ -5,6 +5,7 @@ import argparse
 import base64
 import io
 import os
+import posixpath
 import secrets
 import subprocess
 import tarfile
@@ -40,13 +41,16 @@ def unpack(blob, key, destination):
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
         for m in tar.getmembers():
             if (
-                m.issym()
-                or m.islnk()
-                or not (m.isfile() or m.isdir())
-                or not m.name.startswith("state")
+                m.islnk()
+                or not (m.isfile() or m.isdir() or m.issym())
+                or not (m.name == "state" or m.name.startswith("state/"))
                 or ".." in Path(m.name).parts
             ):
                 raise ValueError("unsafe archive entry")
+            if m.issym():
+                target = posixpath.normpath(posixpath.join(posixpath.dirname(m.name), m.linkname))
+                if posixpath.isabs(m.linkname) or not target.startswith("state/"):
+                    raise ValueError("unsafe archive link")
         dest.mkdir(parents=True, exist_ok=True)
         tar.extractall(dest, filter="data")
 
