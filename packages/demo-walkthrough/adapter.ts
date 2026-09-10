@@ -19,6 +19,7 @@ export type StudioAdapter = {
     save: (run: Recording) => Promise<void>;
   };
   plan: (workflow: Workflow) => ExecutionPlan;
+  displayAddress?: (url: string) => string;
   prepareSnapshot: (capture: Capture) => string;
   details?: (context: RunContext) => { label: string; value: string }[];
   navigation?: {

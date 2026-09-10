@@ -50,14 +50,30 @@ export function workflowPlayback(captures: Capture[], workflow: Workflow) {
       );
     });
   let playAt = 0;
-  return ordered.map(({ capture }, i) => {
-    if (i)
-      playAt += Math.max(
-        3000,
-        Math.min(5000, capture.at - ordered[i - 1].capture.at),
-      );
-    return { ...capture, playAt };
+  const result: (Capture & {playAt: number})[] = [];
+  const actor = (c: Capture) => workflow.nodes.find(n => n.id === c.stepId)?.actor ?? workflow.defaultActor ?? "User";
+  const escape = (text: string) => text.replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]!));
+  ordered.forEach(({capture}, i) => {
+    if (i) playAt += Math.max(3000, Math.min(5000, capture.at - ordered[i - 1].capture.at));
+    if (i && actor(capture) !== actor(ordered[i - 1].capture)) {
+      const name = actor(capture).replace(/[-_]/g, " ");
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      result.push({...capture, playAt, verified:false, click:false, artifact:undefined, heading:"Character selection", targetId:undefined,
+        guide:{action:"inspect",caption:`Switching to ${label}'s perspective.`},
+        html:`<!doctype html><html><body style="margin:0;background:#10170e;color:#edf5e8;font-family:system-ui;display:grid;place-items:center;min-height:100vh;text-align:center"><main><p>Character selection</p><h1 style="font-size:48px">${escape(label)}</h1><p>Switching perspective</p></main></body></html>`});
+      playAt += 2000;
+    }
+    result.push({...capture, playAt});
+    if (capture.payload) {
+      playAt += 1500;
+      const payload = capture.payload;
+      result.push({...capture, playAt, verified:false, click:false, artifact:undefined, targetId:undefined,
+        heading:payload.title, guide:{action:"inspect",caption:payload.note},
+        html:`<!doctype html><html lang="en"><body style="margin:0;background:#f6f1e7;color:#292a23;font:17px/1.5 system-ui;padding:32px;box-sizing:border-box"><main style="max-width:850px;margin:auto"><p style="color:#c75c30">Mock payload · Fictional data</p><h1>${escape(payload.title)}</h1><p>${escape(payload.note)}</p><pre style="background:#fffaf1;border:1px solid #ddd6c8;border-radius:8px;padding:24px;white-space:pre-wrap;overflow-wrap:anywhere;font:18px/1.65 monospace">${escape(JSON.stringify(payload.data, null, 2))}</pre><p>Pause playback to inspect this example.</p></main></body></html>`});
+      playAt += 7000;
+    }
   });
+  return result;
 }
 
 export function recordingProgress(

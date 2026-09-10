@@ -1,3 +1,4 @@
+import { useState, useId, useEffect, useRef } from "react";
 import {
   Button,
   Slider,
@@ -11,9 +12,38 @@ import { ReplayFrame } from "./ReplayFrame";
 import { useDemoWalkthrough } from "./provider";
 import type { Perspective } from "./contracts";
 import "./style.css";
+function PanMap({children, hidden, height}: {children: import("react").ReactNode; hidden: boolean; height: number}) {
+  const drag = useRef<{id:number;x:number;y:number;left:number;top:number;moved:boolean}|null>(null);
+  const suppress = useRef(false);
+  return <div className="wp-graph-scroll" hidden={hidden} style={{height,minHeight:height,maxHeight:height,touchAction:"none",cursor:"grab",userSelect:"none"}}
+    onPointerDown={e=>{if(e.button!==0)return; suppress.current=false;drag.current={id:e.pointerId,x:e.clientX,y:e.clientY,left:e.currentTarget.scrollLeft,top:e.currentTarget.scrollTop,moved:false};}}
+    onPointerMove={e=>{const d=drag.current;if(!d||d.id!==e.pointerId)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;if(!d.moved&&Math.hypot(dx,dy)<5)return;d.moved=true;suppress.current=true;e.currentTarget.setPointerCapture(e.pointerId);e.currentTarget.style.cursor="grabbing";e.currentTarget.scrollLeft=d.left-dx;e.currentTarget.scrollTop=d.top-dy;e.preventDefault();}}
+    onPointerUp={e=>{drag.current=null;e.currentTarget.style.cursor="grab";if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
+    onPointerCancel={e=>{drag.current=null;e.currentTarget.style.cursor="grab";}}
+    onClickCapture={e=>{if(suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}}}
+  >{children}</div>;
+}
 export * from "./provider";
 export type * from "./contracts";
 export function DemoWalkthroughStudio() {
+  const [mapVisible, setMapVisible] = useState(() => {
+    try { return localStorage.getItem("demo-walkthrough:map-visible") !== "false"; }
+    catch { return true; }
+  });
+  const [mapHeight, setMapHeight] = useState(() => {
+    try {
+      const value = Number(localStorage.getItem("demo-walkthrough:map-height"));
+      return Number.isFinite(value) && value >= 100 && value <= 480 ? value : 240;
+    } catch { return 240; }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("demo-walkthrough:map-visible", String(mapVisible));
+      localStorage.setItem("demo-walkthrough:map-height", String(mapHeight));
+    } catch { /* Storage can be disabled; controls still work in this session. */ }
+  }, [mapVisible, mapHeight]);
+  const mapId = useId();
+  const [showCast, setShowCast] = useState(true);
   const {
         actor,
     busy,
@@ -42,6 +72,7 @@ export function DemoWalkthroughStudio() {
     nonce,
     frames,
     frameUrl,
+    displayAddress,
     paths,
     moveCursor,
     subtitles,
@@ -70,20 +101,29 @@ export function DemoWalkthroughStudio() {
     prepareSnapshot,
     saveSubtitles,
   } = useDemoWalkthrough();
+  useEffect(() => { setShowCast(true); }, [workflow.id]);
+  useEffect(() => { if (playing) setShowCast(false); }, [playing]);
+  const startAs = (perspective: string) => {
+    chooseWorkflow(workflow.id, perspective);
+    setShowCast(false);
+    setPlaying(true);
+  };
+
   return (
     <div className="demo-walkthrough-root">
       <div
         className="workflow-player"
         data-library="false"
         data-review="map"
+        data-map-visible={mapVisible}
       >
         <header className="wp-heading">
           <div>
             <h1 className="wp-brand"><img src={new URL("./logo.png", import.meta.url).href} alt="Demo Walkthrough" width="36" height="36" /></h1>
             <label className="wp-workflow-picker">
-              Perspective
+              Actor
               <select
-                aria-label="Perspective"
+                aria-label="Actor"
                 value={actor}
                 disabled={busy || running}
                 onChange={(e) => chooseActor(e.target.value as Perspective)}
@@ -130,6 +170,18 @@ export function DemoWalkthroughStudio() {
                 Now showing {names[node.surface]} · {node.label}
               </p>
               <div ref={stage} className="wp-stage">
+                {showCast && <section className="wp-cast" aria-label="Meet the actors">
+                  <p>Meet the actors</p>
+                  <h2>{workflow.title}</h2>
+                  <p>Choose a character to start from their first step.</p>
+                  <div className="wp-cast-actors">
+                    {actors.filter(a => workflow.nodes.some(n => (n.actor ?? workflow.defaultActor) === a.id)).map(a => <button key={a.id} disabled={!captures.length} onClick={() => startAs(a.id)}>
+                      <span aria-hidden="true">{a.label.slice(0,1).toUpperCase()}</span><strong>{a.label}</strong><small>Start as this actor</small>
+                    </button>)}
+                  </div>
+                  <Button isDisabled={!captures.length} onPress={() => startAs("all")}>Play complete journey</Button>
+                </section>}
+
                 {surfaces.map((s) => {
                   const c = [...playback]
                     .reverse()
@@ -154,7 +206,8 @@ export function DemoWalkthroughStudio() {
                         </small>
                       </header>
                       <div className="wp-address">
-                        {new URL(frameUrl(s, paths[s], nonce.current)).host}
+                        <span>Demo address</span>{" "}
+                        {(() => { try { const url = new URL(mode === "replay" && c?.url ? c.url : frameUrl(s, paths[s], nonce.current)); return displayAddress ? displayAddress(url.href) : url.host + url.pathname; } catch { return "Preview"; } })()}
                       </div>
                       {mode === "live" && enabled ? (
                         <iframe
@@ -171,9 +224,12 @@ export function DemoWalkthroughStudio() {
                         <ReplayFrame
                           prepareSnapshot={prepareSnapshot}
                           capture={c}
+                          artifactTime={Math.max(0, time - c.playAt)}
+                          artifacts={[...new Map(playback.filter(item => item.playAt <= time && item.artifact?.action === "download").map(item => [item.artifact!.id, item.artifact!])).values()]}
                           title={names[s] + " recorded frame"}
                           active={s === node.surface}
                           onFocus={moveCursor}
+                          onTakeover={() => setPlaying(false)}
                         />
                       ) : (
                         <div className="wp-frame-empty">
@@ -322,11 +378,13 @@ export function DemoWalkthroughStudio() {
                   onPress={() => {
                     setMode("replay");
                     setTime(0);
-                    setPlaying(true);
+                    setPlaying(false);
+                    setShowCast(true);
                   }}
                 >
                   <ArrowRotateLeft aria-hidden="true" />
                 </Button>
+                {!mapVisible && <Button variant="ghost" aria-expanded={false} aria-controls={mapId} onPress={() => setMapVisible(true)}>Show map</Button>}
               </div>
               <div
                 ref={reviewPane}
@@ -369,7 +427,7 @@ export function DemoWalkthroughStudio() {
                 {(error || recording?.error) && (
                   <p role="alert">{error || recording?.error}</p>
                 )}
-                <div className="wp-bottom">
+                <div className="wp-bottom" hidden={!mapVisible} id={mapId}>
                   <section className="wp-map">
                     <header className="wp-row">
                       <div>
@@ -380,6 +438,11 @@ export function DemoWalkthroughStudio() {
                         </small>
                       </div>
                       <div>
+                        <label className="wp-map-height" hidden={!mapVisible}>
+                          Height
+                          <input aria-label="Workflow map height" type="range" min="100" max="480" step="20" value={mapHeight} onChange={e => setMapHeight(Number(e.target.value))}/>
+                        </label>
+                        <Button variant="ghost" aria-expanded={mapVisible} aria-controls={mapId} onPress={() => setMapVisible(v => !v)}>{mapVisible ? "Hide map" : "Show map"}</Button>
                         <Button
                           variant="ghost"
                           aria-label="Zoom out"
@@ -401,7 +464,7 @@ export function DemoWalkthroughStudio() {
                         </Button>
                       </div>
                     </header>
-                    <div className="wp-graph-scroll">
+                    <PanMap hidden={!mapVisible} height={mapHeight}>
                       <div
                         style={{ width: width * zoom, height: height * zoom }}
                       >
@@ -464,7 +527,7 @@ export function DemoWalkthroughStudio() {
                           ))}
                         </div>
                       </div>
-                    </div>
+                    </PanMap>
                   </section>
                 </div>
               </div>

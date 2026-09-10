@@ -21,7 +21,10 @@ export type Workflow = {
   chapters?: { label: string; steps: string[] }[];
   branches?: { id: string; label: string; steps: string[] }[];
 };
+export type PlaybackArtifact = { id: string; name: string; action: "download" | "use" };
 export type Capture = {
+  payload?: { title: string; note: string; data: unknown };
+  artifact?: PlaybackArtifact;
   stepId: string;
   at: number;
   surface: Surface;
@@ -90,6 +93,7 @@ export type StudioController = {
   stage: RefObject<HTMLDivElement | null>;
   surfaces: Surface[];
   playback: {
+    artifact?: PlaybackArtifact;
     playAt: number;
     stepId: string;
     at: number;
@@ -155,6 +159,7 @@ export type StudioController = {
   branches: { id: string; label: string; steps: string[] }[];
   record: () => Promise<void>;
   frameName: (nonce: string) => string;
+  displayAddress?: (url: string) => string;
   prepareSnapshot: (capture: Capture) => string;
   saveSubtitles: (enabled: boolean) => void;
 };

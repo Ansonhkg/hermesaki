@@ -111,7 +111,8 @@
   color: var(--muted);
 }
 .demo-walkthrough-root .wp-address {
-  font-size: 10px;
+  font-size: 12px;
+  flex-shrink: 0;
   color: var(--muted);
   padding: 6px 12px;
   background: var(--dw-background);
@@ -533,7 +534,7 @@
     flex-shrink: 0;
   }
   .demo-walkthrough-root .wp-address {
-    display: none;
+    display: block;
   }
   .demo-walkthrough-root .wp-frame iframe,
   .demo-walkthrough-root .wp-frame-empty {
@@ -1052,3 +1053,31 @@
 
 .demo-walkthrough-root .workflow-player .wp-brand { display: flex; align-items: center; }
 .demo-walkthrough-root .wp-brand img { display: block; width: 36px; height: 36px; object-fit: contain; }
+
+.demo-walkthrough-root .wp-map-height { display:flex; align-items:center; gap:8px; font-size:12px; }
+.demo-walkthrough-root .wp-map-height input { width:90px; accent-color:var(--accent); }
+.demo-walkthrough-root .wp-map [hidden] { display:none !important; }
+
+.demo-walkthrough-root .wp-bottom[hidden] { display:none !important; }
+
+@media (min-width: 801px) {
+  .demo-walkthrough-root .workflow-player[data-review="map"] .wp-workspace {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+  }
+  .demo-walkthrough-root .workflow-player[data-map-visible="false"] .wp-workspace {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+}
+.demo-walkthrough-root .workflow-player[data-map-visible="false"] .wp-review { display: none; }
+
+.demo-walkthrough-root .wp-takeover { position:absolute; right:12px; top:12px; z-index:20; padding:8px 12px; border:1px solid #b9ed72; border-radius:8px; background:#182014; color:#e9f5dd; cursor:pointer; font:inherit; }
+
+.demo-walkthrough-root .wp-cast { position:absolute; inset:0; z-index:30; background:#10170e; color:#edf5e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; overflow:auto; text-align:center; }
+.demo-walkthrough-root .wp-cast h2,.demo-walkthrough-root .wp-cast p { margin:0; }
+.demo-walkthrough-root .wp-cast-actors { display:flex; flex-wrap:wrap; justify-content:center; gap:16px; margin:12px 0; }
+.demo-walkthrough-root .wp-cast-actors button { display:flex; flex-direction:column; align-items:center; gap:10px; padding:20px; background:#202d19; color:#edf5e8; border:1px solid #657e45; border-radius:12px; cursor:pointer; }
+.demo-walkthrough-root .wp-cast-actors span { background:#b9ed72; color:#182014; border-radius:50%; width:48px; height:48px; display:grid; place-items:center; font-size:24px; }
+
+.demo-walkthrough-root .wp-file-tray {position:absolute;top:58px;right:12px;z-index:5;max-width:268px;padding:10px;border-radius:8px;background:#202d19;color:#edf5e8;font:12px/1.5 system-ui;pointer-events:none;overflow-wrap:anywhere;}
+.demo-walkthrough-root .wp-file-tray small {display:block;color:#b9ed72;margin-bottom:4px;}
+.demo-walkthrough-root .wp-file-flight {position:absolute;z-index:25;max-width:268px;background:#b9ed72;color:#15220c;padding:10px;border-radius:8px;font:12px/1.5 system-ui;pointer-events:none;overflow-wrap:anywhere;}

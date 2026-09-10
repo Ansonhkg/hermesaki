@@ -1,20 +1,27 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { Capture } from "./contracts";
+import type { Capture, PlaybackArtifact } from "./contracts";
 
 // Keep the painted slide mounted while its replacement loads underneath it.
 export function ReplayFrame({
   capture,
+  artifacts = [],
+  artifactTime = 0,
   title,
   active,
   onFocus,
+  onTakeover,
   prepareSnapshot,
 }: {
+  artifacts?: PlaybackArtifact[];
+  artifactTime?: number;
+  onTakeover?: () => void;
   prepareSnapshot: (capture: Capture) => string;
   capture: Capture;
   title: string;
   active: boolean;
   onFocus: (x: number, y: number) => void;
 }) {
+  const [takeover, setTakeover] = useState(false);
   const maskId = useId().replace(/:/g, "");
   const html = useMemo(
     () => prepareSnapshot(capture),
@@ -72,9 +79,25 @@ export function ReplayFrame({
     () => () => pendingFrames.current.forEach(cancelAnimationFrame),
     [],
   );
+  useEffect(() => { setTakeover(false); }, [html]);
+  const returnToFrame = () => {
+    setTakeover(false);
+    const frame = buffer.current?.querySelector<HTMLIFrameElement>('iframe[aria-hidden="false"]');
+    if (frame) setRect(measure(frame, true));
+  };
+  const event = capture.artifact;
+  const progress = Math.min(1, artifactTime / 1000);
+  const trayX = Math.max(0, (buffer.current?.clientWidth ?? 600) - 280);
+  const originX = rect ? Math.max(0, Math.min(rect.x, trayX)) : trayX;
+  const originY = rect ? Math.max(0, rect.y) : 60;
+  const fraction = event?.action === "use" ? 1 - progress : progress;
   const documents = painted && painted !== html ? [painted, html] : [html];
   return (
-    <div ref={buffer} className="wp-replay-buffer" aria-busy={painted !== html}>
+    <div ref={buffer} className="wp-replay-buffer" aria-busy={painted !== html} onWheelCapture={event => {
+      if (!takeover) return;
+      event.stopPropagation();
+      buffer.current?.querySelector<HTMLIFrameElement>('iframe[aria-hidden="false"]')?.contentWindow?.scrollBy(event.deltaX, event.deltaY);
+    }}>
       {documents.map((document) => (
         <iframe
           key={document}
@@ -82,8 +105,10 @@ export function ReplayFrame({
           sandbox="allow-same-origin"
           srcDoc={document}
           aria-hidden={document !== painted}
-          tabIndex={document === painted ? 0 : -1}
-          style={{ visibility: document === painted ? "visible" : "hidden" }}
+          tabIndex={takeover && document === painted ? 0 : -1}
+          // Replay is a fixed slide. Wheel/touch input belongs to the outer viewer,
+          // otherwise the captured document scrolls independently of its spotlight.
+          style={{ visibility: document === painted ? "visible" : "hidden", pointerEvents: "none" }}
           onLoad={(event) => {
             const frame = event.currentTarget;
             measure(frame, true);
@@ -102,7 +127,15 @@ export function ReplayFrame({
           }}
         />
       ))}
-      {rect && (
+      {!takeover && artifacts.length > 0 && <aside className="wp-file-tray" aria-label="Downloaded files in this walkthrough">
+        <small>Downloaded files · demo</small>
+        {artifacts.map(file => <div key={file.id}>▤ {file.name}</div>)}
+      </aside>}
+      {!takeover && event && rect && artifactTime < 1300 && <div className="wp-file-flight" aria-label={event.action === "use" ? "Using downloaded file" : "Downloading file"} style={{left:originX + (trayX-originX)*fraction, top:originY + (64-originY)*fraction, opacity:event.action === "use" && progress === 1 ? 0 : 1}}>▤ {event.name}</div>}
+      <button type="button" className="wp-takeover" aria-pressed={takeover} onClick={() => takeover ? returnToFrame() : (onTakeover?.(), setTakeover(true))}>
+        {takeover ? "Return to frame" : "Take over"}
+      </button>
+      {!takeover && rect && (
         <svg
           className="wp-spotlight"
           width="100%"

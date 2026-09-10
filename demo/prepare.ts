@@ -9,24 +9,30 @@ await page.goto('http://127.0.0.1:19195/author.html');await page.waitForFunction
 const frame=()=>page.frames().find(f=>f!==page.mainFrame())!;
 const fill=async(s:string,v:string)=>frame().locator(s).fill(v);const click=async(s:string)=>frame().locator(s).click();
 const steps:Record<string,()=>Promise<any>>={
+ 'get-token':async()=>{const download=page.waitForEvent('download');await click('#download-mailbox');await (await download).saveAs('.runtime/demo/hermesaki-mailbox-credentials.json');},
  claim:async()=>{await fill('#credential','demo-bootstrap');await fill('#new-owner','demo-owner');await click('#connect');},
  domain:async()=>{await fill('[name=domain]','example.test');await fill('[name=server_ip]','192.0.2.10');await fill('[name=owner_email]','owner@example.test');await click('#settings button');},
  cloudflare:async()=>{await fill('#provider-token','fictional-provider-token');await click('#provider button');},
  review:async()=>{await frame().locator('#confirm-plan').check();await click('#apply-plan button');},
  services:async()=>{await fill('#access-team','demo');await fill('#first-mailbox','hi@example.test');await frame().locator('#acme-terms').check();await click('#service-settings button');},
  deploy:async()=>{await frame().locator('#service-confirm').check();await click('#service-apply button');},
+ credentials:async()=>{const download=page.waitForEvent('download');await click('#download-mailbox');const file=await download;await file.saveAs('.runtime/demo/hermesaki-mailbox-credentials.json');},
  signing:async()=>click('#dkim-plan button'),publish:async()=>{await frame().locator('#dkim-confirm').check();await click('#dkim-apply button');},
  verify:async()=>click('#verify-runtime button'),finish:async()=>click('#complete-setup button'),
  login:async()=>{await fill('#owner-token','invalid');await click('#login-form button');},
- invalid:async()=>{await fill('#owner-token','demo-owner');await click('#login-form button');},
+ invalid:async()=>{await frame().locator('#token-file').setInputFiles('.runtime/demo/hermesaki-mailbox-credentials.json');},
+ file:async()=>{await click('#login-form button');},
  empty:async()=>{await fill('#local-name','atlas');await click('#create-form button');},
  issued:async()=>click('#check'),connected:async()=>{await click('#send-test');await frame().locator('#messages button').waitFor();},
  message:async()=>click('#messages button'),revoke:async()=>click('#tokens button'),
  revoked:async()=>click('summary'),delete:async()=>{await fill('#delete-email','atlas@example.test');await click('#delete');}
 };
+for(const [id,tab] of Object.entries({'op-inboxes':'jobs','op-jobs':'deliveries','op-deliveries':'drafts','op-drafts':'tokens','op-tokens':'audit'}))steps[id]=async()=>{await frame().getByRole('button',{name:'Activity',exact:true}).click();await frame().getByRole('button',{name:tab,exact:true}).click();};
+steps['op-login']=async()=>{await fill('#token','demo-owner');await click('#connect');};
 const recordings:any[]=[];await mkdir('.runtime/demo',{recursive:true});
-try{for(const workflow of workflows){await page.locator('iframe').evaluate((el:any,path)=>{el.src=path;},workflow.id==='setup'?'/setup':'/ui/onboarding/live.html');await page.frameLocator('iframe').locator(workflow.id==='setup'?'#claim':'#login').waitFor();
- const run=await runWalkthrough({workflow,signal:new AbortController().signal,timing:{settle:200,after:250,poll:100},select:(id)=>console.log(workflow.id,id),prepare:()=>{},rpc:async(_s,type,key)=>page.evaluate(({type,key})=>(window as any).rpc(type,key),{type,key}),save:async()=>{},plan:{prepare:async()=>({sample:'hermesaki-local'}),steps:()=>workflow.nodes.map(step=>({step,key:workflow.id+'/'+step.id,guide:guides[workflow.id+'/'+step.id],manual:steps[step.id],afterCapture:steps[step.id]?'server' as const:undefined}))}});
- if(run.outcome!=='passed')throw Error(run.error);recordings.push(run);
+try{for(const workflow of workflows){await page.locator('iframe').evaluate((el:any,path)=>{el.src=path;},workflow.id==='operator'?'/operator':'/setup');await page.frameLocator('iframe').locator(workflow.id==='operator'?'#connect':'#claim').waitFor();if(workflow.id==='inbox'){await fill('#credential','demo-bootstrap');await fill('#new-owner','demo-owner');await click('#connect');await frame().locator('#download-mailbox').waitFor();}
+ const run=await runWalkthrough({workflow,signal:new AbortController().signal,timing:{settle:200,after:250,poll:100},select:(id)=>console.log(workflow.id,id),prepare:()=>{},rpc:async(_s,type,key)=>{const step=key?.split('/')[1];if(key?.startsWith('setup/')&&['clone','vps','upload','boot','tunnel','bootstrap','claim'].includes(step!)){const path=step==='claim'?'/setup':'/install/'+step;if(!frame().url().endsWith(path))await frame().goto('http://127.0.0.1:19195'+path);}
+if(key==='inbox/login'&&frame().url().includes('/setup')){await frame().goto('http://127.0.0.1:19195/ui/onboarding/live.html');}return page.evaluate(({type,key})=>(window as any).rpc(type,key),{type,key});},save:async()=>{},plan:{prepare:async()=>({sample:'hermesaki-local'}),steps:()=>workflow.nodes.map(step=>({step,key:workflow.id+'/'+step.id,guide:guides[workflow.id+'/'+step.id],manual:steps[step.id],afterCapture:steps[step.id]?'server' as const:undefined}))}});
+ if(run.outcome!=='passed')throw Error(run.error);for(const c of run.captures){const action=['credentials','get-token'].includes(c.stepId)?'download':c.stepId==='invalid'?'use':null;if(action&&c.check==='target')c.artifact={id:'operator-credentials',name:'hermesaki-mailbox-credentials.json',action};}recordings.push(run);
  }await writeFile('.runtime/demo/recordings.json',JSON.stringify(recordings));if(errors.length)throw Error(errors.join('\n'));console.log('Prepared '+recordings.reduce((n,r)=>n+r.captures.length,0)+' actual UI captures with simulated services.');
 }catch(e){await page.screenshot({path:'.runtime/demo/failure.png'});console.log(await frame().locator('body').innerText());throw e;}finally{await browser.close();}

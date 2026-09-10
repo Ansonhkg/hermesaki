@@ -5,6 +5,7 @@ export function mockApi() {
  return (path:string,method:string,data:any,authorization:string):[number,any]=>{
  if(path==='/v1/setup/status')return [200,{claimed:false}];
  if(path==='/v1/setup/claim')return [200,{}];
+ if(path==='/v1/setup/services/credentials')return [200,{email:'hi@example.test',operator_token:'demo-owner',password:'fictional-only'}];
  if(path.startsWith('/v1/setup')){
   if(path.endsWith('/configuration'))state.settings=data;
   if(path.endsWith('/cloudflare')){state.cloudflare_plan=plan;return [200,{plan}];}
@@ -28,7 +29,7 @@ export function mockApi() {
  if(path.endsWith('/test-message')){read=true;return [200,{id:'mock-job',state:'queued'}];}
  if(path.endsWith('/messages'))return [200,read?[{uid:'1',subject:'Hello from Hermesaki',from:'sam@example.test'}]:[]];
  if(method==='DELETE'){inbox=null;return [200,{deleted:true}];}
- if(path.startsWith('/v1/operator/'))return [200,{items:[],has_more:false}];
+ if(path.startsWith('/v1/operator/'))return [200,{items:[path.endsWith('/jobs')?{id:'job-demo',state:'submitted',note:'SMTP accepted; delivery not confirmed'}:path.endsWith('/deliveries')?{id:'delivery-demo',state:'dead',attempts:3,last_error:'Simulated webhook timeout; replay via API'}:path.endsWith('/drafts')?{id:'draft-demo',state:'pending',inbox:'atlas@example.test'}:path.endsWith('/audit')?{actor:'owner',action:'create_inbox',result:'ok'}:{id:'atlas',email:'atlas@example.test'}],has_more:false}];
  return [404,{error:'not_found'}];
  };
 }

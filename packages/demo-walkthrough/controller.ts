@@ -172,8 +172,9 @@ export function useDemoStudio(adapter: StudioAdapter): StudioController {
                 (r) =>
                   r.id === initial.recording &&
                   r.workflow === initial.workflow.id,
-              );
+              ) ?? latestRecording(runs, initial.workflow);
         if (r) {
+          writeNavigation(initial.workflow, initial.actor, r);
           setRecording(r);
           setMode("replay");
           const w = r.definition ?? initial.workflow;
@@ -468,6 +469,7 @@ export function useDemoStudio(adapter: StudioAdapter): StudioController {
     branches,
     record,
     frameName: (n) => framePrefix + n,
+    displayAddress: adapter.displayAddress,
     prepareSnapshot: adapter.prepareSnapshot,
     saveSubtitles: (e) => adapter.preferences?.write(e),
   };
