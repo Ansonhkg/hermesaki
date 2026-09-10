@@ -128,3 +128,17 @@ $('#complete-setup').onsubmit=event=>{event.preventDefault();busy(event.target,a
  const state=await request('/v1/setup/complete','POST',{confirm_plan_id:servicePlan.id});
  renderComplete(state);
 });};
+
+$('#network-download').onclick=async()=>{
+ try{
+  const value=await request('/v1/setup/network/challenge','POST',{});
+  const url=URL.createObjectURL(new Blob([JSON.stringify(value)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download='hermesaki-network-challenge.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $('#feedback').textContent='Run the private challenge on a separate public host within 15 minutes, then upload its result.';
+ }catch(error){$('#feedback').textContent=error.message;}
+};
+$('#network-upload').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{
+ const file=$('#network-result').files[0];if(!file||file.size>32768)throw new Error('Choose a probe JSON file under 32 KB.');
+ await request('/v1/setup/network/result','POST',JSON.parse(await file.text()));
+ $('#network-result').value='';await request('/v1/setup/services/verify','POST',{});render(await request('/v1/setup'));
+});};

@@ -17,6 +17,7 @@ from .setup_services import Services, DeploymentError, dns_plan, private_write
 from .setup_runtime import Runtime
 from .setup_verify import verify as verify_services
 from .setup_handover import handover
+from .setup_network import issue as issue_network, accept as accept_network
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 
@@ -37,6 +38,7 @@ class Setup:
         self.directory.chmod(0o700)
         self.database = self.directory / "setup.sqlite"
         with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS network_probe (id INTEGER PRIMARY KEY CHECK(id=1), challenge TEXT, result TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS completion (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS verification (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS renewal (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
@@ -98,6 +100,23 @@ class Setup:
                 if method == "GET" and path == "/v1/setup":
                     return json.loads(completed["value"])
                 raise Rejected(409, "setup_completed_use_operator")
+            if method == "POST" and path in ("/v1/setup/network/challenge", "/v1/setup/network/result"):
+                saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
+                if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
+                    raise Rejected(409,"deploy_services_first")
+                plan_id = json.loads(saved["plan"])["id"]
+                if path.endswith("/challenge"):
+                    challenge = issue_network(json.loads(row["settings"]),plan_id)
+                    db.execute("INSERT OR REPLACE INTO network_probe VALUES(1,?,NULL)",(json.dumps(challenge),))
+                    db.execute("DELETE FROM verification")
+                    return challenge
+                current = db.execute("SELECT challenge FROM network_probe WHERE id=1").fetchone()
+                if not current or not current["challenge"]:raise Rejected(409,"new_network_challenge_required")
+                try:result = accept_network(json.loads(current["challenge"]),data,plan_id)
+                except (ValueError,TypeError,KeyError) as error:raise Rejected(409,"network_probe_invalid_or_expired")
+                db.execute("UPDATE network_probe SET challenge=NULL,result=? WHERE id=1",(json.dumps(result),))
+                db.execute("DELETE FROM verification")
+                return result
             if method == "POST" and path == "/v1/setup/complete":
                 saved = db.execute("SELECT * FROM deployment WHERE id=1").fetchone()
                 if not saved or not saved["progress"] or json.loads(saved["progress"]).get("state") != "services_running":
@@ -109,7 +128,7 @@ class Setup:
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 # Re-run actual checks; saved JSON or caller-supplied booleans cannot complete setup.
                 result = verify_services(Runtime(Services(self.directory)), json.loads(row["settings"]), plan,
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"), bool(renewal), self.network_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)", (json.dumps(result),))
                 db.commit()
                 try:
@@ -135,7 +154,7 @@ class Setup:
                 dkim = db.execute("SELECT progress FROM dkim WHERE id=1").fetchone()
                 renewal = db.execute("SELECT value FROM renewal WHERE id=1").fetchone()
                 result = verify_services(runtime,json.loads(row["settings"]),json.loads(saved["plan"]),
-                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal))
+                    bool(dkim and dkim["progress"] and json.loads(dkim["progress"]).get("state")=="dkim_published"),bool(renewal), self.network_result(db))
                 db.execute("INSERT OR REPLACE INTO verification VALUES(1,?)",(json.dumps(result),))
                 return result
             if method == "POST" and path == "/v1/setup/services/credentials":
@@ -285,6 +304,7 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 os.replace(temporary, file)
                 db.execute("DELETE FROM verification")
                 db.execute("DELETE FROM renewal")
+                db.execute("DELETE FROM network_probe")
                 acme_credential = self.directory / "installation/certbot-secret/cloudflare.ini"
                 if acme_credential.exists():
                     private_write(acme_credential, "dns_cloudflare_api_token = " + raw + "\n")
@@ -334,6 +354,10 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                 result["service_progress"] = json.loads(deployment["progress"]) if deployment and deployment["progress"] else None
                 return self.next_actions(result)
             raise Rejected(404, "not_found")
+
+    def network_result(self, db):
+        row = db.execute("SELECT result FROM network_probe WHERE id=1").fetchone()
+        return json.loads(row["result"]) if row and row["result"] else None
 
     def next_actions(self, result):
         plan, progress = result.get("cloudflare_plan"), result.get("provisioning")

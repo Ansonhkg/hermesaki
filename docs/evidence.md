@@ -115,3 +115,24 @@ mutations after completion, normal-operation links, and public mail DNS lookups.
 owner enforcement, live recheck invocation and persistence of retired setup.
 Both setup and provider browser regression suites pass. The completion test uses
 an explicit verification fixture. Full public setup acceptance is still pending.
+
+### External network verifier
+
+Added owner-authenticated challenge/download and result/upload routes, with the
+same controls in setup forms. The helper observes an external SMTP greeting and
+forward/reverse DNS, ties its signed result to the current plan, expires after
+15 minutes, and consumes results once. Same-host/private-source checks cannot
+pass. Network results expire and outbound SMTP is rechecked during verification.
+65 tests and both browser regression suites passed.
+
+Ran the helper from an existing independent VPS against the production SMTP
+address. Public SMTP and the mail hostname's forward/reverse DNS passed. Outbound
+SMTP from the mail VPS also passed. Captured results and explicitly simulated
+failure responses were submitted to Parogres for independent review; submission
+is not acceptance.
+
+The remote-agent verification attempt found a real permission blocker: the
+current setup credential can list Access service tokens but creation was denied.
+No service token or policy was created by that failed attempt. The account API
+credential needs Access: Service Tokens Write for this path. External email and
+remote-agent verification remain incomplete.

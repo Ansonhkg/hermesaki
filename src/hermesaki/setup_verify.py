@@ -1,6 +1,7 @@
 """Observed deployment readiness. Never converts an untested check into success."""
 import json
 import time
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,7 +14,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def verify(runtime,settings,plan,dkim_published,renewal_verified):
+def verify(runtime,settings,plan,dkim_published,renewal_verified,network=None):
     checks=[]
     def add(name,state,detail):checks.append({'id':name,'state':state,'detail':detail})
     script='''import json,time,urllib.request
@@ -58,7 +59,17 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
     checks.append(public_dns(settings))
     for name,detail in (
         ('external_mail','External send and authenticated reply receipt still need verification.'),
-        ('authenticated_agent','Authorized remote MCP access and denied ungranted operations still need verification.'),
-        ('provider_network','Public SMTP reachability and matching PTR still need verification.')):
+        ('authenticated_agent','Authorized remote MCP access and denied ungranted operations still need verification.')):
         add(name,'pending',detail)
+    if network and network.get('plan_id')==plan['id'] and 0<=time.time()-network.get('checked_at',0)<86400:
+        network=dict(network)
+        if network['state']=='passed':
+            try:
+                with socket.create_connection(('gmail-smtp-in.l.google.com',25),timeout=5):pass
+                network['detail']+=' Outbound SMTP connection from installation host succeeded.'
+            except OSError:
+                network.update(state='pending',detail='External inbound check passed, but outbound SMTP connection failed. Check provider port-25 restrictions.')
+        checks.append(network)
+    else:
+        add('provider_network','pending','Download a network probe challenge, run it on a separate public host and upload the signed result.')
     return {'checks':checks,'ready':all(c['state']=='passed' for c in checks),'complete':False,'checked_at':int(time.time()),'next_action':'resolve_pending_checks'}

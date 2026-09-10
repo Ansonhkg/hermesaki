@@ -86,3 +86,27 @@ External mail, authenticated remote-agent and external network verification are
 still pending in the current implementation, so this new gate does not yet make a
 full fresh production setup completable. Tests of the gate use explicit verifier
 fixtures and are not evidence that those public checks passed.
+
+## External SMTP and DNS probe
+
+After deployment, request `POST /v1/setup/network/challenge` as the owner, or use
+**Download network challenge**. Keep the JSON private: it contains a short-lived
+probe signing key. On another publicly addressed host with Hermesaki available,
+run `python -m hermesaki.setup_network < challenge.json > result.json`, then POST
+the result to `/v1/setup/network/result` or upload it through the same setup page.
+The helper connects to public SMTP, reads its greeting, sends QUIT without mail,
+and checks forward and reverse DNS. The setup service verifies the signature,
+plan binding and expiry, then consumes the challenge. A failed observation stays
+pending with a remedy. A check from the mail server's own IP or a private source
+cannot pass. This is an owner-operated probe, not third-party attestation: the
+owner must run the unmodified helper on the intended external machine.
+
+During installation verification, accepted inbound observations expire after
+24 hours and outbound SMTP is checked again from the installation host. Provider
+credential replacement invalidates saved network results. None of these checks
+establishes external email delivery or sender authentication; those remain separate.
+
+Unattended Cloudflare Access verification also requires the setup API credential
+to have **Access: Service Tokens Write** in the selected account. Listing service
+tokens does not prove permission to create them. The deployed mailbox still
+requires its own scoped token after Access authentication.
