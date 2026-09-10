@@ -55,12 +55,14 @@ def sync(config, certificate, key, hostname=None):
 
 def main():
     config=Config.load()
+    hostname=os.environ.get('HERMESAKI_CERTIFICATE_HOST')
+    health=Path(config.state)/('certificate-health-'+hashlib.sha256(hostname.encode()).hexdigest()[:16]+'.json' if hostname else 'certificate-health.json')
     while True:
         try:
-            changed=sync(config,'/certificates/live/hermesaki/fullchain.pem','/certificates/live/hermesaki/privkey.pem',os.environ.get('HERMESAKI_CERTIFICATE_HOST'))
-            private_write(Path(config.state)/'certificate-health.json',json.dumps({'status':'verified','checked_at':int(time.time()),'changed':changed}))
+            changed=sync(config,os.environ.get('HERMESAKI_CERTIFICATE_FILE','/certificates/live/hermesaki/fullchain.pem'),os.environ.get('HERMESAKI_CERTIFICATE_KEY','/certificates/live/hermesaki/privkey.pem'),os.environ.get('HERMESAKI_CERTIFICATE_HOST'))
+            private_write(health,json.dumps({'status':'verified','checked_at':int(time.time()),'changed':changed}))
         except Exception:
-            private_write(Path(config.state)/'certificate-health.json',json.dumps({'status':'failed','checked_at':int(time.time()),'error':'certificate_sync_failed'}))
+            private_write(health,json.dumps({'status':'failed','checked_at':int(time.time()),'error':'certificate_sync_failed'}))
         time.sleep(60)
 
 if __name__=='__main__':main()

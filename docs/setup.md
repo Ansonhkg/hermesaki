@@ -152,3 +152,7 @@ exact hostname from its certificate. Sync adds or updates only that certificate,
 verifies its served leaf through the private mail connection, and preserves the
 primary certificate files. A certificate without that exact DNS name is rejected
 before making management changes. Each hostname has a separate sync marker.
+The sync worker also accepts `HERMESAKI_CERTIFICATE_FILE` and
+`HERMESAKI_CERTIFICATE_KEY` for a read-only certificate source managed by an
+existing reverse proxy. Additional hostnames write separate health records,
+so one certificate cannot overwrite another hostname's verification status.
