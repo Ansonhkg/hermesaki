@@ -17,6 +17,13 @@ class Fixture(Cloudflare):
     def call(self,method,path,body=None,query=None):
         if method=='GET' and path.endswith('/configurations'):return {'result':{'config':copy.deepcopy(self.config)}}
         self.writes.append((method,path,copy.deepcopy(body)));self.serial+=1;ident=str(self.serial)
+        if method=='DELETE':
+            ident=path.split('/')[-1]
+            if '/dns_records/' in path:self.records=[r for r in self.records if r.get('id')!=ident]
+            elif '/access/apps/' in path:self.apps=[a for a in self.apps if a['id']!=ident];self.policies.pop(ident,None)
+            elif '/cfd_tunnel/' in path:self.tunnels=[t for t in self.tunnels if t['id']!=ident]
+            else:raise AssertionError(path)
+            return {'success':True,'result':{'id':ident}}
         if method=='POST' and path.endswith('/cfd_tunnel'):
             value={'id':ident,**body};self.tunnels.append(value)
         elif method=='POST' and path.endswith('/access/apps'):
@@ -40,8 +47,9 @@ class Apply(unittest.TestCase):
         f.apply(self.settings,plan,progress,lambda p:None)
         self.assertEqual(len(f.writes),writes)
         self.assertIn(unrelated,f.records)
-        access=[i for i,(_,p,_) in enumerate(f.writes) if p.endswith('/access/apps')]
-        dns=[i for i,(_,p,_) in enumerate(f.writes) if p.endswith('/dns_records')]
+        production=[w for w in f.writes if not (w[2] or {}).get('name','').startswith('hermesaki-check-')]
+        access=[i for i,(_,p,_) in enumerate(production) if p.endswith('/access/apps')]
+        dns=[i for i,(_,p,_) in enumerate(production) if p.endswith('/dns_records')]
         self.assertLess(max(access),min(dns))
         self.assertTrue(checkpoints)
         refreshed=f.plan(self.settings)
@@ -82,6 +90,34 @@ class Apply(unittest.TestCase):
         f.call=uncertain
         with self.assertRaises(CloudflareError):f.apply(self.settings,plan,progress,lambda p:None)
         f.call=original
-        with self.assertRaisesRegex(CloudflareError,'uncertain_cloudflare_write'):f.apply(self.settings,plan,progress,lambda p:None)
-        self.assertEqual(len(f.tunnels),1)
-        self.assertFalse(f.records)
+        with self.assertRaisesRegex(CloudflareError,'uncertain_permission_probe'):f.apply(self.settings,plan,progress,lambda p:None)
+        self.assertEqual(len(f.records),1)
+        self.assertFalse(f.tunnels)
+
+    def test_missing_write_permission_cleans_probes_before_live_changes(self):
+        f=Fixture();plan=f.plan(self.settings);original=f.call;progress={}
+        def denied(method,path,body=None,query=None):
+            if method=='POST' and path.endswith('/access/apps'):raise CloudflareError('cloudflare_permission_denied')
+            return original(method,path,body,query)
+        f.call=denied
+        with self.assertRaisesRegex(CloudflareError,'write_permission_required'):
+            f.apply(self.settings,plan,progress,lambda p:None)
+        self.assertFalse(f.records);self.assertFalse(f.tunnels);self.assertFalse(f.apps)
+        self.assertFalse(progress['steps']);self.assertEqual(progress['permission_probe']['state'],'failed')
+        f.call=original
+        f.apply(self.settings,plan,progress,lambda p:None)
+        self.assertEqual(progress['permission_probe']['state'],'passed')
+        self.assertEqual(len(f.records),2)
+
+    def test_cleanup_failure_blocks_provisioning_until_retry(self):
+        f=Fixture();plan=f.plan(self.settings);original=f.call;progress={}
+        def denied(method,path,body=None,query=None):
+            if method=='DELETE':raise CloudflareError('cloudflare_permission_denied')
+            return original(method,path,body,query)
+        f.call=denied
+        with self.assertRaisesRegex(CloudflareError,'cleanup_required'):
+            f.apply(self.settings,plan,progress,lambda p:None)
+        self.assertFalse(progress['steps']);self.assertTrue(progress['permission_probe']['resources'])
+        f.call=original
+        f.apply(self.settings,plan,progress,lambda p:None)
+        self.assertEqual(len(f.records),2);self.assertEqual(len(f.apps),2);self.assertEqual(len(f.tunnels),1)

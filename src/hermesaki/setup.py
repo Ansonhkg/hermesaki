@@ -344,6 +344,15 @@ print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id
                         db.execute("UPDATE state SET settings=? WHERE id=1",(json.dumps(settings),))
                 except CloudflareError as error:
                     raise Rejected(400, str(error))
+                current = db.execute("SELECT value FROM progress WHERE id=1").fetchone()
+                if current:
+                    progress = json.loads(current["value"])
+                    probe = progress.get("permission_probe", {})
+                    if probe.get("inflight") or probe.get("uncertain_write"):
+                        raise Rejected(409, "permission_probe_cleanup_required_before_rotation")
+                    if not probe.get("resources"):
+                        progress.pop("permission_probe", None)
+                    db.execute("UPDATE progress SET value=? WHERE id=1", (json.dumps(progress),))
                 # No credential is saved until validation succeeds. Atomic replacement supports rotation.
                 file = self.directory / "cloudflare-token"
                 temporary = self.directory / "cloudflare-token.new"

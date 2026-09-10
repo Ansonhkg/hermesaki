@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -132,9 +133,89 @@ class Cloudflare:
             actions.append({'kind':'dns','operation':'reuse' if compatible_dns else 'conflict' if records else 'create','hostname':hostname,'type':'CNAME','proxied':True,'target':target})
         plan = {'scope':'web_protection_only','zone_name':zone['name'],'zone_id':zone['id'],'account_id':account,'actions':actions,'conflicts':sorted(set(conflicts)),
             'apply_available':not conflicts,'checks':{'zone_read':'passed','dns_read':'passed','access_read':'passed','tunnel_read':'passed','write_permissions':'unverified'},
+            'permission_preflight':{'resources':['Temporary TXT record','Disconnected Tunnel with deny-all route','Owner-only Access application without DNS'],'cleanup':'Remove every probe before provisioning the reviewed resources.','required':['Zone DNS Edit','Account Cloudflare Tunnel Edit','Account Access Apps and Policies Edit']},
             'remaining':['Mail deployment and connector startup remain separate.','Mail DNS, TLS, SMTP and end-to-end mail are not configured by this plan.']}
         plan['id'] = fingerprint({'settings':settings,'observed':observed,'actions':actions})
         return plan
+
+    def verify_write_permissions(self, settings, approved, progress, checkpoint):
+        """Probe only isolated resources, and finish cleanup before provisioning."""
+        probe = progress.get('permission_probe')
+        if probe and probe.get('state') == 'passed':
+            return
+        if probe and (probe.get('inflight') or probe.get('uncertain_write')):
+            raise CloudflareError('uncertain_permission_probe_review_required')
+        if probe and probe.get('state') == 'cleanup_required':
+            while probe['resources']:
+                path = probe['resources'][-1]['path']
+                # DELETE is safely retryable, including an interrupted cleanup.
+                try:
+                    self.call('DELETE', path)
+                except CloudflareError:
+                    raise CloudflareError('permission_probe_cleanup_required') from None
+                probe['resources'].pop()
+                checkpoint(progress)
+            probe['state'] = 'failed'
+            checkpoint(progress)
+        if not probe or probe.get('state') == 'failed':
+            if probe and probe.get('resources'):
+                raise CloudflareError('permission_probe_cleanup_required')
+            probe = {'name':'hermesaki-check-'+secrets.token_hex(10), 'state':'checking', 'resources':[], 'checks':{}}
+            progress['permission_probe'] = probe
+            checkpoint(progress)
+        account = '/accounts/' + approved['account_id']
+        host = probe['name'] + '.' + approved['zone_name']
+        def write(method, path, body=None):
+            probe['inflight'] = {'method':method, 'path':path}
+            checkpoint(progress)
+            try:
+                result = self.call(method, path, body)
+            except CloudflareError as error:
+                if str(error) == 'cloudflare_permission_denied':
+                    probe.pop('inflight', None)
+                    checkpoint(progress)
+                raise
+            probe.pop('inflight', None)
+            return result
+        def create(kind, path, body):
+            result = write('POST', path, body)['result']
+            probe['resources'].append({'kind':kind,'path':path+'/'+result['id']})
+            probe['checks'][kind] = 'passed'
+            checkpoint(progress)
+            return path+'/'+result['id']
+        failure = None
+        try:
+            create('dns', '/zones/'+approved['zone_id']+'/dns_records',
+                   {'type':'TXT','name':host,'content':'Hermesaki permission check','ttl':60})
+            tunnel = create('tunnel', account+'/cfd_tunnel', {'name':probe['name'],'config_src':'cloudflare'})
+            write('PUT', tunnel+'/configurations', {'config':{'ingress':[{'service':'http_status:404'}]}})
+            checkpoint(progress)
+            create('access', account+'/access/apps', {'type':'self_hosted','name':probe['name'],'domain':host,
+                   'session_duration':'15m','policies':[{'name':'Owner only','decision':'allow','precedence':1,
+                   'include':[{'email':{'email':settings['owner_email']}}]}]})
+        except CloudflareError as error:
+            failure = error
+        # An uncertain create must be reconciled by the operator before retrying.
+        # Never lose its intent while cleaning up acknowledged resources.
+        uncertain = probe.pop('inflight', None)
+        try:
+            while probe['resources']:
+                resource = probe['resources'][-1]
+                write('DELETE', resource['path'])
+                probe['resources'].pop()
+                checkpoint(progress)
+        except CloudflareError:
+            probe['state'] = 'cleanup_required'
+            if uncertain: probe['uncertain_write'] = uncertain
+            checkpoint(progress)
+            raise CloudflareError('permission_probe_cleanup_required') from None
+        if uncertain: probe['inflight'] = uncertain
+        probe['state'] = 'failed' if failure else 'passed'
+        checkpoint(progress)
+        if failure:
+            if str(failure) == 'cloudflare_permission_denied':
+                raise CloudflareError('cloudflare_write_permission_required_dns_tunnel_access') from None
+            raise failure
 
     def apply(self, settings, approved, progress, checkpoint):
         """Each acknowledged action is checkpointed. Ambiguous writes fail closed for review."""
@@ -147,6 +228,7 @@ class Cloudflare:
             checkpoint(progress)
         if progress['plan_id'] != approved['id']:
             raise CloudflareError('different_plan_in_progress')
+        self.verify_write_permissions(settings, approved, progress, checkpoint)
         account, zone = approved['account_id'],approved['zone_id']
         prefix='/accounts/'+account
         steps=progress['steps']

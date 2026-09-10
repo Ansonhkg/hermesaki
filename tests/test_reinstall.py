@@ -39,3 +39,20 @@ class ReinstallRestore(unittest.TestCase):
         self.archive_data();self.archive.write_bytes(self.archive.read_bytes()[:-1]+b'x')
         with self.assertRaises(Exception):r.restore(self.archive,self.key,self.destination,Path('/old'))
         self.assertFalse(self.destination.exists())
+
+    def test_snapshot_includes_external_certificates_and_encrypted_compose(self):
+        from unittest.mock import patch
+        source=self.root/'deployment';source.mkdir();(source/'.runtime').mkdir();(source/'.runtime/message').write_text('mail')
+        cert=self.root/'cert';(cert/'archive').mkdir(parents=True);(cert/'live').mkdir()
+        (cert/'archive/cert.pem').write_text('certificate');(cert/'live/cert.pem').symlink_to('../archive/cert.pem')
+        conf=source/'compose.json';conf.write_text(json.dumps({'services':{'mail':{'volumes':[str(source/'.runtime')+':/state',str(cert)+':/cert:ro'],'environment':{'PRIVATE':'private-value'}}}}))
+        with patch.object(r,'compose',return_value=b'container'),patch.object(r,'run',return_value=b''):
+            r.snapshot(conf,self.archive,self.key)
+        self.assertNotIn(b'private-value',self.archive.read_bytes())
+        self.assertFalse(self.archive.with_suffix('.compose.json').exists())
+        restored=r.restore(self.archive,self.key,self.destination,source)
+        config=json.loads(restored.read_text());volumes=config['services']['mail']['volumes']
+        self.assertEqual(Path(volumes[0].split(':')[0],'message').read_text(),'mail')
+        certificate=Path(volumes[1].split(':')[0],'live/cert.pem')
+        self.assertTrue(certificate.is_symlink());self.assertEqual(certificate.read_text(),'certificate')
+        self.assertEqual(config['services']['mail']['environment']['PRIVATE'],'private-value')

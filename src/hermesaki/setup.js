@@ -44,7 +44,7 @@ function renderProvider(plan) {
   $('#provider-state').textContent='Read access checked. Write access and deployment remain unverified.';
   const list=(selector,items)=>$(selector).replaceChildren(...items.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
   list('#provider-conflicts',plan.conflicts);
-  list('#provider-actions',plan.actions.map(a=>a.operation+' '+a.kind+': '+(a.hostname||a.name)));
+  list('#provider-actions',[...(plan.permission_preflight ? ['Before provisioning: verify DNS, Tunnel and Access writes with temporary resources, then remove them.'] : []),...plan.actions.map(a=>a.operation+' '+a.kind+': '+(a.hostname||a.name)+(a.service?' → '+a.service:'')+(a.allow_email?' · allow '+a.allow_email:'')+(a.target?' → '+a.target:''))]);
 }
 $('#provider').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{try{const result=await request('/v1/setup/cloudflare','PUT',{token:$('#provider-token').value.trim()});renderProvider(result.plan);$('#feedback').textContent='Cloudflare read checks passed. Plan prepared; no infrastructure changed.';}finally{$('#provider-token').value='';}});};
 
