@@ -10,6 +10,21 @@ from .store import Store
 from .service import Service
 
 
+def configure_container_logging(api):
+    """Use the container log stream; never enable message/body debug tracing."""
+    tracers = api.list("Tracer")
+    if not any(t.get("@type") == "Stdout" and t.get("enable") for t in tracers):
+        api.call("x:Tracer/set", {"create": {"console": {
+            "@type": "Stdout", "enable": True, "level": "info", "ansi": False,
+            "buffered": False,
+        }}})
+    defaults = {t["id"]: {"enable": False} for t in tracers
+                if t.get("@type") == "Log" and t.get("path") == "/var/log/stalwart/"
+                and t.get("enable")}
+    if defaults:
+        api.call("x:Tracer/set", {"update": defaults})
+
+
 def run(phase):
     c = Config.load()
     production = c.mode == "production"
@@ -55,6 +70,7 @@ def run(phase):
                 raise
             time.sleep(1)
     if phase == "configure":
+        configure_container_logging(api)
         certificate = {
             "certificate": {
                 "@type": "Text",

@@ -76,4 +76,4 @@ print(json.dumps({'mailbox':bool(folders),'webmail':urllib.request.urlopen('http
         checks.append(network)
     else:
         add('provider_network','pending','Download a network probe challenge, run it on a separate public host and upload the signed result.')
-    return {'checks':checks,'ready':all(c['state']=='passed' for c in checks),'complete':False,'checked_at':int(time.time()),'next_action':'resolve_pending_checks'}
+    return {'checks':checks,'ready':all(c['state']=='passed' for c in checks),'complete':False,'checked_at':int(time.time()),'next_action':'complete_setup' if all(c['state']=='passed' for c in checks) else 'resolve_pending_checks'}
