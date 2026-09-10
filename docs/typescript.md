@@ -67,3 +67,17 @@ The preview at `/ui/onboarding/` remains explicitly mock-only. The real page doe
 - `make restore-test`: encrypted snapshot restored into a separate mail stack.
 
 All tests use fictional addresses and local outbound capture. No CI or automatic deployment is installed. These tests do not prove public DNS, Cloudflare policy correctness or public email deliverability.
+
+## Cloudflare client identification
+
+The SDK and CLI identify requests as `Hermesaki/0.1`. Custom HTTP clients should
+also send an explicit application User-Agent. Cloudflare can reject Python
+urllib's default agent with HTTP 403 and error 1010 before the request reaches
+Access or Hermesaki. This differs from a mailbox permission denial. Keep Access
+service credentials and the mailbox bearer token on the request; changing the
+User-Agent does not replace either authentication layer. Do not disable website
+protection to fix a client identification error.
+
+MCP tool authorization errors can arrive as JSON-RPC errors with HTTP 200.
+Check the error object, not just the HTTP status. A read-only send must report
+`scope_denied`; an invalid mailbox bearer token is rejected with HTTP 401.
