@@ -67,7 +67,7 @@ npm run hermesaki -- messages --inbox YOUR_INBOX_ID</code></pre></div>
 <p>Token issuance writes to a new file with mode 0600, never stdout. It refuses to overwrite an existing file and revokes the issued token if saving fails. Other commands output JSON; message-read commands intentionally include requested mail content. Credentials are accepted from files or environment variables, not command arguments. Use <code>--scopes mail.read,mail.write</code> to enable sending, and <code>--ttl</code> to set token lifetime in seconds. Default access is read-only and the lifetime is 30 days.</p>
 <p>Sending takes <code>--file</code> pointing to a JSON message and <code>--key</code> for idempotency. Replies take <code>--uid</code>, <code>--file</code> containing <code>body_text</code>, and <code>--key</code>. Delete requires the exact <code>--email</code>. Run <code>help</code> for the complete command list.</p>
 <h3>Real onboarding</h3>
-<p>Open http://localhost:19100/ui/onboarding/live.html after <code>make dev</code>. Choose <code>.runtime/product/operator-token</code> in the owner token file input. Credentials stay in tab memory; reloading requires authentication again.</p>
+<p>Open <code>/login</code> on your installation after setup. Sign in with your saved operator credentials, then open Inboxes. Your secure session survives navigation and refresh for up to 12 hours.</p>
 <p>1. Create an address on the configured domain. Repeating the same address retrieves the existing inbox.</p>
 <p>2. Issue a mailbox token and save it. Choose MCP, TypeScript, CLI or HTTP examples.</p>
 <p>3. Check real MCP access. Locally, queue a test message through SMTP and read its body through MCP.</p>
