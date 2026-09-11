@@ -51,7 +51,7 @@ No CI, automatic deployment, live credentials or real mailbox fixtures are inclu
 
 ## Landing page
 
-Run `make landing` and open http://localhost:19190. A two-section page featuring the Hermesaki messenger, a short workflow and setup links.
+Run `make landing` and open http://127.0.0.1:19195/welcome. This shares the local preview server with the dashboard and walkthrough. The landing page covers agent inboxes, MCP/API connections and mail operations; `/welcome/setup` contains the getting-started guide. Local API and provider responses on this preview server are fictional.
 
 ## First-run setup preview
 

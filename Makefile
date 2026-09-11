@@ -37,7 +37,7 @@ deploy: client-build .venv/bin/python prepare
 
 .PHONY: landing
 landing:
-	$(PYTHON) -m http.server 19190 --bind 127.0.0.1 --directory landing
+	npm run demo
 
 .PHONY: client-build client-test client-live browser-test
 client-build:

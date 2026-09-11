@@ -1,7 +1,9 @@
 // Local-only, fictional provider and mailbox responses. Never imported by production.
 export function mockApi() {
  let state:any={checks:[]}, inbox:any=null, issued=false, read=false, revoked=false;
- let mcpGate:any=null;
+ let mcpGate:any=null, pending:any=null;
+ const inventory:any={dns:[{id:'demo-a',type:'A',name:'mail.example.test',content:'203.0.113.10',ttl:300}],routes:[{tunnel_id:'demo-tunnel',hostname:'inbox.example.test',service:'http://127.0.0.1:18940'}],policies:[{app_id:'demo-app',id:'demo-policy',hostname:'hermesaki.example.test',name:'Owner only',include:[{email:{email:'owner@example.test'}}]}]};
+ const configuration:any={domain:'example.test',mode:'development',operator_url:'https://hermesaki.example.test',webmail_url:'https://inbox.example.test',mail_host:'mail.example.test',imap_port:993,smtp_port:465,cloudflare_identity_verification:true,message_size_limit_bytes:5242880,delivery_attempt_limit:5,infrastructure:inventory};
  const plan={id:'fictional-plan',apply_available:true,conflicts:[],actions:[{operation:'create',kind:'Tunnel',hostname:'inbox.example.test'},{operation:'create',kind:'Access',hostname:'hermesaki.example.test'}]};
  return (path:string,method:string,data:any,authorization:string):[number,any]=>{
  if(path==='/v1/setup/status')return [200,{claimed:false}];
@@ -23,11 +25,16 @@ export function mockApi() {
  if(path==='/v1/operator/mcp-connection')return [200,{url:'https://hermesaki.example.test/mcp',cloudflare_required:true,configured:!!mcpGate}];
  if(path==='/v1/operator/mcp-connection/save'){mcpGate={client_id:'fictional-client-id',client_secret:'fictional-client-secret'};return [200,{saved:true,verified:false}];}
  if(path==='/v1/operator/mcp-connection/reveal')return mcpGate?[200,mcpGate]:[409,{error:'service_credentials_not_configured'}];
- if(path==='/v1/operator/configuration')return [200,{domain:'example.test',mode:'development',operator_url:'https://hermesaki.example.test',webmail_url:'https://inbox.example.test',mail_host:'mail',imap_port:993,smtp_port:465,cloudflare_identity_verification:true,configuration_mode:'read_only'}];
+ if(path==='/v1/operator/configuration')return [200,configuration];
+ if(path==='/v1/operator/configuration/plan'){if(!/^https:\/\//.test(data.webmail_url))return [400,{error:'https_webmail_url_required'}];pending={id:'demo-setting-plan',before:configuration.webmail_url,after:data.webmail_url};return [200,pending];}
+ if(path==='/v1/operator/configuration/apply'){if(!pending||data.confirm_plan_id!==pending.id)return [409,{error:'plan_required'}];configuration.webmail_url=pending.after;pending=null;return [200,{applied:true}];}
+ if(path==='/v1/operator/infrastructure'||path==='/v1/operator/infrastructure/connect')return [200,{...inventory,checked_at:Date.now()/1000}];
+ if(path==='/v1/operator/infrastructure/plan'){const key=data.kind==='dns'?'dns':data.kind==='route'?'routes':'policies';const r=inventory[key].find((r:any)=>(data.kind==='dns'?r.id:data.kind==='route'?r.tunnel_id+'|'+r.hostname:r.app_id+'|'+r.id)===data.id);if(!r)return [404,{error:'resource_not_found'}];pending={id:'demo-infra-plan',before:{...r},after:{...r,...data.change},key,resource:r};return [200,{id:pending.id,before:pending.before,after:pending.after}];}
+ if(path==='/v1/operator/infrastructure/apply'){if(!pending||data.confirm_plan_id!==pending.id)return [409,{error:'plan_required'}];Object.assign(pending.resource,pending.after);pending=null;return [200,{applied:true}];}
  if(path.endsWith('/webmail-credentials'))return authorization==='Bearer demo-owner'?[200,{email:inbox?.email,password:'fictional-webmail-password',webmail_url:'https://inbox.example.test'}]:[403,{error:'scope_denied'}];
  if(path==='/v1/settings')return [200,{webmail_url:'https://inbox.example.test',domain:'example.test',mode:'development',public_url:'http://127.0.0.1:19195'}];
  if(path==='/v1/inboxes'&&method==='POST'){inbox={id:'atlas',email:data.email,active:1};return [200,inbox];}
- if(path==='/v1/inboxes')return [200,{items:inbox?[inbox]:[],has_more:false}];
+ if(path==='/v1/inboxes'||path==='/v1/operator/inboxes')return [200,{items:inbox?[inbox]:[],has_more:false}];
  if(path==='/v1/tokens'&&method==='POST'){issued=true;revoked=false;return [200,{id:'demo-token',token:'fictional-mail-token',scopes:['mail.read']}];}
  if(path==='/v1/operator/tokens')return [200,{items:issued?[{id:'demo-token',inbox:'atlas',scopes:'mail.read',expires:4102444800,revoked}]:[],has_more:false}];
  if(path.startsWith('/v1/tokens/')&&method==='DELETE'){revoked=true;return [200,{revoked:true}];}

@@ -1,0 +1,15 @@
+/* Shared form contract. Load after page styles; spacing belongs here, not in page selectors. */
+:root{--form-label-gap:8px;--form-field-gap:20px;--form-action-gap:12px;--form-control-height:40px;--form-control-padding:12px;--form-select-padding:40px}
+body label{display:block!important;font-size:13px;font-weight:500;line-height:1.5;margin-top:var(--form-field-gap)!important;margin-bottom:var(--form-label-gap)!important}
+body label:has(>input,>select,>textarea,>.secret-field){display:flex!important;flex-direction:column;align-items:stretch;gap:var(--form-label-gap)}
+body label:has(>input[type=checkbox]){flex-direction:row;align-items:center;gap:var(--form-label-gap)}
+body label>input,body label>select,body label>textarea,body label>.secret-field{margin-top:0!important;margin-bottom:0!important}
+body input:not([type=checkbox]):not([type=radio]):not([type=file]),body select,body textarea{box-sizing:border-box;display:block;min-width:0;width:100%;height:var(--form-control-height)!important;padding:8px var(--form-control-padding)!important;font:inherit;line-height:1.4;color:var(--foreground,#292a23);background-color:var(--card,#fffdf8);border:1px solid var(--input,#d9d2c6);border-radius:6px}
+body textarea{height:auto!important;min-height:96px;resize:vertical}
+body select{appearance:none!important;-webkit-appearance:none!important;padding-right:var(--form-select-padding)!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2368685d' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 12px center!important;background-size:16px!important}
+body .secret-field input{padding-right:78px!important}body .secret-field{margin:0;max-width:100%}body .secret-actions{right:5px}
+body .form-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:var(--form-action-gap) 0}body .form-actions>button{margin:0!important}
+body :is(input,select,textarea):focus-visible{outline:2px solid var(--ring,#c75c30);outline-offset:2px}
+body label:has(>input[type=checkbox]) input{width:auto;flex:none}
+
+body label:has(>input,>select,>textarea,>.secret-field){max-width:640px}body label>select,body label>input:not([type=checkbox]):not([type=radio]),body label>textarea{max-width:none!important}

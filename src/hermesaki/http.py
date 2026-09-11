@@ -53,9 +53,9 @@ class App:
                 if method == "GET" and path in ("/onboarding", "/onboarding/", "/ui/onboarding", "/ui/onboarding/", "/ui/onboarding/index.html", "/ui/", "/ui/index.html"):
                     start("303 See Other", [("Location", "/inboxes"), ("Cache-Control", "no-store")])
                     return [b""]
-                if path.startswith("/ui/") and method == "GET":
+                if (path.startswith("/ui/") or path in ("/welcome", "/welcome/setup")) and method == "GET":
                     root = Path(__file__).resolve().parents[2] / "landing"
-                    relative = path.removeprefix("/ui/") or "index.html"
+                    relative = {"/welcome": "index.html", "/welcome/setup": "get-started.html"}.get(path, path.removeprefix("/ui/") or "index.html")
                     file = (root / relative).resolve()
                     if not file.is_relative_to(root.resolve()):
                         raise Problem(404, "not_found")
@@ -80,7 +80,7 @@ class App:
                         ],
                     )
                     return [file.read_bytes()]
-                if path in ("/", "/login", "/inboxes", "/agents", "/activity", "/settings", "/docs") and method == "GET":
+                if (path in ("/", "/login", "/inboxes", "/agents", "/activity", "/settings", "/docs") or path.startswith(("/docs/", "/settings/"))) and method == "GET":
                     body = Path(__file__).with_name("operator.html").read_bytes()
                     start(
                         "200 OK",

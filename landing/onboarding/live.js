@@ -1,3 +1,4 @@
+import {secretField,enhanceSecrets} from '../design-system/secret-field.js';
 import {Hermesaki} from '../client.js';
 export function mountInbox(root,raw){
 const $=s=>root.querySelector(s);
@@ -21,7 +22,7 @@ $('#issue').onclick=()=>run('Issuing mailbox token…',issue);
 function snippet(){const url=settings.public_url;const id=inbox.id;const examples={MCP:JSON.stringify({url:url+'/mcp',headers:{Authorization:'Bearer YOUR_MAILBOX_TOKEN'}},null,2),TypeScript:`import { Hermesaki } from '@hermesaki/client';\nconst mail = new Hermesaki({\n  baseUrl: '${url}',\n  token: process.env.HERMESAKI_TOKEN\n});\nawait mail.listMessages('${id}');`,CLI:`export HERMESAKI_URL='${url}'\nexport HERMESAKI_TOKEN_FILE=/private/path/mailbox-token\nhermesaki messages --inbox ${id}`,HTTP:`GET ${url}/v1/inboxes/${id}/messages\nAuthorization: Bearer YOUR_MAILBOX_TOKEN`};$('#snippet').textContent=examples[$('#client-kind').value];}
 $('#client-kind').onchange=snippet;
 async function copy(value){try{await navigator.clipboard.writeText(value);notice('Copied.');}catch{notice('Clipboard unavailable. Select and copy the field manually.',true);}}
-$('#copy-token').onclick=()=>copy(token.token);$('#copy-config').onclick=()=>copy($('#snippet').textContent);
+$('#copy-token').onclick=()=>copy(token.token);$('#copy-config').onclick=async()=>{const b=$('#copy-config');try{await navigator.clipboard.writeText($('#snippet').textContent);b.textContent='Copied';}catch{b.textContent='Copy failed';}setTimeout(()=>b.textContent='Copy example',1800);};
 $('#check').onclick=()=>run('Checking real MCP mailbox access…',async()=>{await mailbox.mcp('initialize');await mailbox.mcp('tools/list');await mailbox.mcp('tools/call',{name:'list_folders',arguments:{inbox_id:inbox.id}});$('#checked').hidden=false;$('#send-test').hidden=settings.mode!=='development';$('#production-help').hidden=settings.mode==='development';await messages();});
 async function messages(){const list=await mailbox.listMessages(inbox.id);$('#messages').replaceChildren();if(!list.length)$('#messages').textContent='No messages yet. Send one, then refresh.';for(const m of list)$('#messages').append(row(m.subject||'(No subject)','Read',()=>run('Reading through MCP…',async()=>{const r=await mailbox.mcp('tools/call',{name:'read_message',arguments:{inbox_id:inbox.id,uid:m.uid}});const body=JSON.parse(r.content[0].text);$('#message-body').hidden=false;$('#message-body').textContent=body.body_text;})));return list;}
 let testKey;
@@ -34,6 +35,7 @@ $('#back').onclick=()=>run('Loading inboxes…',async()=>{generation++;$('#webma
 $('#delete').onclick=()=>run('Deleting inbox…',async()=>{if($('#delete-email').value!==inbox.email){notice('Type the exact email address to confirm deletion.',true);return;}await owner.deleteInbox(inbox.id,$('#delete-email').value);token=null;mailbox=null;$('#mail-token').value='';show('create');await list();});
 $('#logout').onclick=()=>{generation++;owner=null;mailbox=null;token=null;$('#mail-token').value='';$('#logout').hidden=true;$('#inboxes').replaceChildren();$('#messages').replaceChildren();$('#message-body').textContent='';show('login');notice('Disconnected.');};
 
+secretField($('#webmail-password'),{load:webmail});enhanceSecrets(root);['webmail-show','webmail-copy','copy-token'].forEach(id=>$('#'+id).hidden=true);
 if(raw){$('#owner-token').value=raw===true?'':raw;$('#login-form').dispatchEvent(new Event('submit',{cancelable:true}));}
 
 }

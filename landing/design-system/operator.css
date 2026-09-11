@@ -11,7 +11,7 @@ th{color:var(--muted-foreground)}.sidebar .btn{border-color:transparent;box-shad
 #api-page section{margin:28px 0}#api-page h1{font-size:24px;margin-bottom:12px}#api-page h2{margin:20px 0 10px}#api-page h3{margin:16px 0 8px}#api-page .table{overflow:auto}#api-page pre{padding:16px;background:var(--muted);border-radius:8px;overflow:auto}#api-page code{font-family:var(--font-mono);font-size:13px}#api-page .example{margin:16px 0}#api-page button{border:1px solid var(--border);padding:6px 12px;border-radius:6px}
 @media(max-width:850px){body.signed-in #sidebar{position:static;display:flex;transform:none;inset:auto;width:100%;height:auto;max-height:none;flex-direction:row;flex-wrap:wrap;visibility:visible}body.signed-in main{margin:0;margin-inline:0;width:100%;min-width:0}.sidebar .bottom{margin:0;display:flex;flex-wrap:wrap}.sidebar .brand{margin:0}.sidebar .brand img{display:none}}
 /* Shared page geometry and embedded inbox forms. */
-body.signed-in main{max-width:1390px;padding:36px 40px 28px}#app-header{min-height:64px;align-items:flex-start;margin-bottom:24px}#app-header h1{margin:0 0 6px}#app-header .actions{padding-top:2px}#error:empty{display:none}.panel{margin-top:20px}#workspace>.panel:first-of-type{margin-top:0}
+body.signed-in main{max-width:1390px;padding:36px 40px 28px}#app-header{min-height:64px;align-items:flex-start;margin-bottom:24px}#app-header h1{margin:0 0 6px}#app-header .actions{padding-top:2px}#error:empty{display:none}.panel{margin-top:20px}
 #inbox-app{padding:0;border:0;background:transparent;margin-top:0}#inbox-app #environment{font-size:12px;margin:0 0 16px}#inbox-app #status:empty{display:none}#inbox-app #status:not(:empty){padding:12px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
 #inbox-app #create{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:24px;align-items:start}#inbox-app .inbox-create-card,#inbox-app .inbox-list-card,#inbox-app #connect{padding:24px;border:1px solid var(--border);border-radius:10px;background:var(--card);min-width:0}#inbox-app h2,#inbox-app h3{font-size:16px;font-weight:600;line-height:1.4;margin:0 0 8px}#inbox-app .hint,#inbox-app .muted{font-size:13px;line-height:1.6;margin:8px 0 16px}
 #inbox-app label{display:block;font-size:13px;font-weight:500;margin:20px 0 7px}#inbox-app input:not([type=checkbox]),#inbox-app select{height:38px;width:100%;max-width:520px;border:1px solid var(--input);border-radius:6px;background:var(--card);padding:8px 10px;font:14px var(--font-sans);color:var(--foreground)}#inbox-app .address{display:flex;align-items:stretch;max-width:520px;border:1px solid var(--input);border-radius:6px;overflow:hidden}#inbox-app .address input{min-width:0;flex:1;border:0;border-radius:0;width:100%;height:38px}#inbox-app .address span{display:flex;align-items:center;padding:0 10px;background:var(--secondary);font-size:13px;color:var(--muted-foreground);white-space:nowrap}#inbox-app button{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 12px;border:1px solid var(--border);border-radius:6px;font:500 13px var(--font-sans);background:var(--card);cursor:pointer}#inbox-app button.button{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}#inbox-app #create-form>.button{width:100%;margin-top:8px}#inbox-app button:disabled{opacity:.5;cursor:wait}#inbox-app .row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--border);font-size:14px}#inbox-app .row>span{min-width:0;overflow-wrap:anywhere}#inbox-app .row>button{flex-shrink:0}#inbox-app #refresh,#inbox-app #more{margin-top:16px}#inbox-app #connect{max-width:800px}#inbox-app #connect>button{margin:12px 8px 12px 0}#inbox-app #connect pre{overflow:auto;max-width:100%;padding:16px;background:var(--secondary);border-radius:8px;font-size:12px;line-height:1.6}#inbox-app #issued,#inbox-app #checked{margin:24px 0;padding-top:20px;border-top:1px solid var(--border)}#inbox-app details{margin-top:24px;padding:16px;border:1px solid var(--border);border-radius:8px}#inbox-app details summary{font-size:13px;font-weight:500;cursor:pointer}#inbox-app .danger{color:var(--destructive)}#configuration{max-width:100%}#configuration table{table-layout:fixed}#configuration th:first-child,#configuration td:first-child{width:30%}#configuration button{min-height:34px}#configuration input,#configuration select{max-width:560px!important}#infrastructure-editor{margin-top:24px}#tabs{margin-top:0}#results:empty{display:none}
@@ -22,3 +22,32 @@ body.signed-in main{max-width:1390px;padding:36px 40px 28px}#app-header{min-heig
 #inbox-app #access-new,#access-form button{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}#access-list button,#access-prev,#access-next,#access-reveal,#access-copy{color:var(--foreground)}
 #webmail-access{padding:20px;margin:20px 0;border:1px solid var(--border);border-radius:8px}#webmail-access button,#webmail-open{margin:12px 8px 0 0;color:var(--foreground)}#configuration [data-edit-infra]{color:var(--foreground)}
 #mcp-connection{margin-top:32px;padding-top:24px;border-top:1px solid var(--border)}#mcp-connection button{color:var(--foreground);margin:12px 8px 0 0}#mcp-connection pre{padding:16px;background:var(--secondary);overflow:auto}#mcp-connection label{max-width:640px}
+
+
+/* Section spacing is owned by the stack, including when notices are hidden. */
+:root{--layout-section-gap:24px;--layout-action-gap:12px}
+#workspace{display:flex;flex-direction:column;gap:var(--layout-section-gap)}
+#workspace>.panel,#workspace>.notice,#workspace>#tabs,#workspace>#disconnect{margin:0!important}
+#workspace>#disconnect{align-self:flex-start}
+#workspace>.notice{display:flex;align-items:center;justify-content:space-between;gap:var(--layout-action-gap)}
+#workspace>.notice>span{min-width:0;line-height:1.6}
+#workspace>.notice>button{flex-shrink:0;margin:0}
+@media(max-width:600px){#workspace>.notice{align-items:flex-start;flex-direction:column}}
+/* The application shell owns geometry for every dashboard route. */
+:root{--dashboard-sidebar-width:230px;--dashboard-gutter:40px}
+html{scrollbar-gutter:stable}
+body.signed-in main{margin-left:var(--dashboard-sidebar-width);margin-inline-start:var(--dashboard-sidebar-width);min-width:0;padding:36px var(--dashboard-gutter) 28px}
+#sidebar{width:var(--dashboard-sidebar-width)}
+.dashboard-card,#inbox-app #mcp-connection{padding:24px;border:1px solid var(--border);border-radius:8px;background:var(--card);margin:0}
+#inbox-app:has(.dashboard-card){display:grid;gap:var(--layout-section-gap)}
+#inbox-app #mcp-connection{padding-top:24px}
+#access-status:empty{display:none}
+body.signed-in main button:not(.secret-action){min-height:36px}
+#inbox-app .secret-actions button{margin:0;min-height:30px;padding:5px;border:0;background:transparent}
+#inbox-app .address input{border:0!important;border-radius:0!important}
+body.signed-in main>footer{margin-top:24px;font-size:13px;line-height:1.6}
+@media(max-width:850px){body.signed-in main{margin:0;margin-inline:0;padding:24px 20px}#sidebar{width:100%}}
+/* Basecoat's optional collapsible-sidebar animation is not used by this shell. */
+body.signed-in main,#sidebar{transition:none!important;animation:none!important}
+
+#sidebar #sidebar-logout{color:var(--destructive,#b42318)}

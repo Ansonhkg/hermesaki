@@ -48,3 +48,19 @@ class SessionTests(unittest.TestCase):
  def test_mailbox_token_cannot_create_operator_session(self):
   with patch.object(self.store,'auth',return_value={'scopes':['mail.read']}):
    with self.assertRaises(Problem):sessions.issue(self.store,'mail-token')
+
+ def test_dashboard_deep_routes_serve_shell(self):
+  for path in ['/docs/connect-with-mcp','/docs/api-reference','/settings/dns','/settings/network']:
+   with self.subTest(path=path):
+    out=[]
+    body=b''.join(self.app({'REQUEST_METHOD':'GET','PATH_INFO':path,'wsgi.input':io.BytesIO(b'')},lambda status,headers:out.append(status)))
+    self.assertEqual(out[0],'200 OK')
+    self.assertIn(b'id="sidebar"',body)
+
+ def test_landing_and_setup_guide_routes(self):
+  for path,title in [('/welcome',b'A real inbox.'),('/welcome/setup',b'Make room for')]:
+   with self.subTest(path=path):
+    out=[]
+    body=b''.join(self.app({'REQUEST_METHOD':'GET','PATH_INFO':path,'wsgi.input':io.BytesIO(b'')},lambda status,headers:out.append(status)))
+    self.assertEqual(out[0],'200 OK')
+    self.assertIn(title,body)

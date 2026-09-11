@@ -1,0 +1,7 @@
+/* One fixed environment bar. Its reserved space never depends on scroll state. */
+:root{--demo-bar-height:44px}
+body{padding-top:var(--demo-bar-height)!important}
+.demo-environment-banner{position:fixed!important;inset:0 0 auto 0!important;z-index:10000;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;height:var(--demo-bar-height);margin:0!important;padding:8px 20px;border:0;border-bottom:1px solid #e5d398;border-radius:0;background:#fff3c9;color:#635021;font:12px/1.5 system-ui,sans-serif;max-width:none;width:100%;overflow-wrap:anywhere}
+.demo-environment-banner strong{font-weight:650;white-space:nowrap}
+@media(min-width:851px){body>#sidebar,body>aside{top:var(--demo-bar-height)!important;height:calc(100dvh - var(--demo-bar-height))!important}}
+@media(max-width:600px){:root{--demo-bar-height:64px}.demo-environment-banner{padding:8px 16px;gap:2px;flex-direction:column;align-items:flex-start;font-size:11px}}
