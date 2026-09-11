@@ -1,0 +1,14 @@
+@layer theme, base, legacy, components, utilities, policy;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./ui-kit.js";
+@source "./showcase.html";
+@source "../../src/hermesaki/operator.html";
+@import "basecoat-css/vega";
+@import "./theme.css";
+@import "./components.css";
+@layer components {
+  .badge[data-variant='success']{color:var(--success);background:color-mix(in srgb,var(--success) 10%,transparent)}
+  .badge[data-variant='warning']{color:var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent)}
+}

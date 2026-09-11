@@ -31,7 +31,7 @@ $('#back').onclick=()=>run('Loading inboxes…',async()=>{generation++;testKey=u
 $('#delete').onclick=()=>run('Deleting inbox…',async()=>{if($('#delete-email').value!==inbox.email){notice('Type the exact email address to confirm deletion.',true);return;}await owner.deleteInbox(inbox.id,$('#delete-email').value);token=null;mailbox=null;$('#mail-token').value='';show('create');await list();});
 $('#logout').onclick=()=>{generation++;owner=null;mailbox=null;token=null;$('#mail-token').value='';$('#logout').hidden=true;$('#inboxes').replaceChildren();$('#messages').replaceChildren();$('#message-body').textContent='';show('login');notice('Disconnected.');};
 
-if(raw){$('#owner-token').value=raw;$('#login-form').dispatchEvent(new Event('submit',{cancelable:true}));}
+if(raw){$('#owner-token').value=raw===true?'':raw;$('#login-form').dispatchEvent(new Event('submit',{cancelable:true}));}
 
 }
 if(!document.querySelector('#inbox-app'))mountInbox(document,'');

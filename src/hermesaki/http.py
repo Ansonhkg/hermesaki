@@ -4,6 +4,7 @@ import mimetypes
 from pathlib import Path
 from urllib.parse import parse_qs
 import jwt
+from . import sessions
 from .config import Config
 from .store import Store, Problem
 from .mail import Mail, Stalwart
@@ -28,6 +29,7 @@ class App:
     def __call__(self, environ, start):
         status = 200
         actor = None
+        extra_headers = []
         try:
             path = environ.get("PATH_INFO", "/")
             method = environ["REQUEST_METHOD"]
@@ -78,7 +80,7 @@ class App:
                         ],
                     )
                     return [file.read_bytes()]
-                if path in ("/", "/login", "/inboxes", "/agents", "/activity", "/settings") and method == "GET":
+                if path in ("/", "/login", "/inboxes", "/agents", "/activity", "/settings", "/docs") and method == "GET":
                     body = Path(__file__).with_name("operator.html").read_bytes()
                     start(
                         "200 OK",
@@ -86,16 +88,32 @@ class App:
                             ("Content-Type", "text/html; charset=utf-8"),
                             (
                                 "Content-Security-Policy",
-                                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
+                                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'",
                             ),
                             ("Cache-Control", "no-store"),
                         ],
                     )
                     return [body]
                 header = environ.get("HTTP_AUTHORIZATION", "")
-                if not header.startswith("Bearer "):
-                    raise Problem(401, "token_required")
-                actor = self.s.store.auth(header[7:])
+                if path == '/v1/session' and method == 'POST':
+                    sessions.same_origin(self.c,environ)
+                    if not header.startswith('Bearer '): raise Problem(401,'token_required')
+                    raw,expires=sessions.issue(self.s.store,header[7:],sessions.cookie_id(environ))
+                    start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store'),sessions.header(self.c,raw)])
+                    return [json.dumps({'authenticated':True,'expires':expires}).encode()]
+                if header.startswith('Bearer '):
+                    actor = self.s.store.auth(header[7:])
+                else:
+                    if method not in ('GET','HEAD'): sessions.same_origin(self.c,environ)
+                    actor = sessions.authenticate(self.s.store,sessions.cookie_id(environ))
+                if path == '/v1/session':
+                    self.s.permit(actor,'admin')
+                    if method == 'DELETE':
+                        sessions.revoke(self.s.store,sessions.cookie_id(environ))
+                        extra_headers.append(sessions.header(self.c,age=0))
+                    elif method != 'GET': raise Problem(405,'method_not_allowed')
+                    start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store')]+extra_headers)
+                    return [json.dumps({'authenticated':method=='GET'}).encode()]
                 length = int(environ.get("CONTENT_LENGTH") or 0)
                 if length > self.c.max_message_bytes or length < 0:
                     raise Problem(413, "request_too_large")

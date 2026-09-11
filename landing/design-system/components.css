@@ -1,0 +1,543 @@
+/*
+ * Sandbox Manager components that Basecoat does not ship, plus small
+ * adjustments so Basecoat controls sit correctly in the manager's dense UI.
+ *
+ * Everything here uses theme tokens (bg-popover, text-muted-foreground …) so
+ * the Design page and the product stay in step. Compiled through Tailwind by
+ * styles/manager.css; never edit dist/manager.css by hand.
+ *
+ * Sections:
+ *   1. Density defaults for Basecoat atoms
+ *   2. Menu (context / overflow) — ui.menu(), ui.openMenu()
+ *   3. Line tabs and chips — ui.tabs(), ui.chip()
+ *   4. Dialog sizes and close button — ui.dialog(), ui.confirm()
+ *   5. Design page previews (layout miniatures, static overlays)
+ *   6. Product composites — where kit atoms meet app layout (composer,
+ *      member rows, inspector, legacy dialogs, forms)
+ *   7. Focus policy — rule "No focus rings or outlines": 1px border in the
+ *      ring colour on :focus-visible, nothing else
+ *   8. Rules page — do / don't comparison cards
+ */
+
+/* 1. Density defaults ------------------------------------------------------ */
+@layer components {
+  .btn .icon { @apply size-4 shrink-0; }
+  .btn[data-size='xs'] .icon { @apply size-3.5; }
+  .btn[data-size='icon-sm'] .icon { @apply size-4; }
+  .btn[data-size='icon'] .icon { @apply size-[18px]; }
+
+  .input, .textarea, select.select {
+    @apply text-[13px];
+  }
+  .input:not([type='checkbox']):not([type='radio']), select.select {
+    @apply h-8;
+  }
+  .input[type='checkbox'] { @apply m-0 min-h-0 p-0; }
+  .input[type='checkbox']:not([role='switch']) { @apply size-4; }
+  .badge .icon { @apply size-3; }
+  .group-lead-badge { @apply ms-1.5 h-4 px-1.5 text-[10px] align-middle; }
+  .group-lead-badge .icon { @apply size-2.5; }
+
+  /* Dangerous actions (rule severity-colours): tinted destructive, no fill until hover. */
+  .btn.btn-danger { @apply text-destructive hover:bg-destructive/10 hover:text-destructive; }
+  .btn.btn-danger .icon { @apply text-destructive; }
+
+  /* Circular icon button (ui.iconButton({round:true})): composer and floating actions. Width and height are
+     already equal for data-size="icon-*"; flex-none stops a flex parent from squeezing it into a pill. */
+  .btn.btn-round, html.dark .btn.btn-round { @apply flex-none rounded-full; }
+
+  /* Identity avatars in lists, headers and pickers have no container: the mark itself is the identity. */
+  .mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar,
+  html.dark :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar) {
+    @apply border-0 bg-transparent shadow-none;
+  }
+  :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar)::after,
+  html.dark :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar)::after { @apply hidden; }
+  :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar) .icon { @apply size-5 text-muted-foreground; }
+  :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar) > span,
+  html.dark :is(.mini-avatar, .group-member-avatar, .header-avatar, .recipient-avatar) > span { @apply bg-transparent; }
+  :is(.mini-avatar, .group-member-avatar, .recipient-avatar) > span { @apply text-lg; }
+  .header-avatar > span { @apply text-[15px]; }
+  .avatar .icon { @apply size-4 text-muted-foreground; }
+  .avatar > span { @apply text-[15px] leading-none; }
+  .avatar[data-size='sm'] > span { @apply text-[13px]; }
+  .avatar[data-size='lg'] > span { @apply text-lg; }
+  .kbd { @apply text-[10px]; }
+  .empty { @apply py-8; }
+  .sidebar-search .icon { @apply size-3.5 shrink-0 text-muted-foreground; }
+  .field > label { @apply text-xs text-muted-foreground; }
+  .field > p { @apply text-xs text-muted-foreground; }
+
+  /* Dropdown (rule aligned-settings): ghost trigger, no border, value + chevron. ui.dropdown() */
+  .dropdown, html.dark .dropdown {
+    @apply w-full justify-between gap-2 border-0 bg-transparent px-2 font-normal text-foreground shadow-none;
+  }
+  .dropdown:hover, html.dark .dropdown:hover, .dropdown[aria-expanded='true'], html.dark .dropdown[aria-expanded='true'] { @apply bg-accent text-foreground; }
+  .dropdown .dropdown-value { @apply min-w-0 truncate text-left; }
+  .dropdown .dropdown-chevron { @apply size-4 shrink-0 text-muted-foreground; }
+  .dropdown:disabled, html.dark .dropdown:disabled { @apply border-0 bg-transparent text-muted-foreground opacity-100 shadow-none; }
+  .dropdown:disabled .dropdown-chevron { @apply text-faint; }
+
+  /* Settings grid: fixed label column, every control on the same x and width. ui.settingGrid() */
+  .setting-grid { @apply grid grid-cols-[88px_minmax(0,1fr)] items-center gap-x-3 gap-y-(--gap-list); }
+  .setting-grid-label { @apply text-xs text-muted-foreground; }
+  .setting-grid > .dropdown { @apply w-full; }
+  .setting-grid > .input, .setting-grid > .select { @apply w-full; }
+  .settings-save { @apply mt-3 flex justify-end; }
+}
+
+/* 2. Menu -------------------------------------------------------------------- */
+@layer components {
+  .menu {
+    @apply z-50 flex min-w-[220px] flex-col gap-(--gap-list) rounded-lg border border-border bg-popover p-1 text-[13px] text-popover-foreground shadow-(--shadow-floating) outline-hidden;
+  }
+  .menu-floating { @apply fixed; }
+  .menu [role='menuitem'] {
+    @apply flex w-full cursor-default items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-[13px] font-normal text-popover-foreground shadow-none outline-hidden select-none;
+    @apply hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground;
+    @apply disabled:pointer-events-none disabled:opacity-50;
+  }
+  .menu [role='menuitem'][data-highlighted='true'] { @apply bg-accent text-accent-foreground; }
+  .menu [role='menuitem'] > span { @apply flex-1 truncate; }
+  .menu [role='menuitem'] .icon { @apply size-4 shrink-0 text-muted-foreground; }
+  .menu [role='menuitem']:hover .icon { @apply text-accent-foreground; }
+  .menu [role='menuitem'].menu-danger { @apply text-destructive; }
+  .menu [role='menuitem'].menu-danger .icon { @apply text-destructive; }
+  .menu [role='menuitem'].menu-danger:hover { @apply bg-destructive/10 text-destructive; }
+  .menu .menu-check { @apply ms-auto; }
+  .menu .kbd { @apply ms-auto; }
+  .menu hr[role='separator'] { @apply -mx-1 my-1 border-0 border-t border-border; }
+  .menu .menu-heading { @apply flex flex-col px-2 pt-1.5 pb-1 text-xs font-medium text-foreground; }
+  .menu .menu-heading small { @apply font-normal text-muted-foreground; }
+}
+
+/* 3. Line tabs and chips ----------------------------------------------------- */
+@layer components {
+  .tabs-line {
+    @apply flex items-end gap-1 border-b border-border;
+  }
+  .tabs-line [role='tab'] {
+    @apply -mb-px inline-flex h-8 items-center gap-1.5 rounded-none border-0 border-b-2 border-transparent bg-transparent px-2.5 text-[13px] text-muted-foreground shadow-none outline-hidden;
+    @apply hover:text-foreground focus-visible:text-foreground;
+  }
+  .tabs-line [role='tab'][aria-selected='true'] { @apply border-foreground text-foreground; }
+  .tabs-line [role='tab'] .icon { @apply size-3.5; }
+
+  .chip {
+    @apply inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary px-2 text-xs text-secondary-foreground;
+    @apply hover:bg-accent;
+  }
+  .chip .icon { @apply size-3 text-muted-foreground; }
+}
+
+/* 4. Dialogs ------------------------------------------------------------------ */
+@layer components {
+  .dialog > div, .alert-dialog > div { @apply max-w-[calc(100%-2rem)] sm:max-w-[480px]; }
+  .dialog[data-size='sm'] > div { @apply sm:max-w-[400px]; }
+  .dialog[data-size='lg'] > div { @apply sm:max-w-[640px]; }
+  .dialog[data-size='xl'] > div { @apply sm:max-w-[880px]; }
+  .dialog > div > .dialog-close { @apply absolute top-3 right-3; }
+  .dialog > div > section { @apply flex flex-col gap-3; }
+  .dialog .search-results .search-result { @apply w-full justify-start; }
+}
+
+/* 5. Design page previews ----------------------------------------------------- */
+@layer components {
+  /* Static overlay previews: neutralise fixed positioning */
+  .design-dialog-preview .dialog,
+  .design-dialog-preview .alert-dialog,
+  .design-dialog-preview.alert-dialog {
+    @apply static block w-full max-w-[560px] opacity-100;
+  }
+  .design-dialog-preview .dialog > div,
+  .design-dialog-preview .alert-dialog > div,
+  .design-dialog-preview.alert-dialog > div {
+    @apply static max-w-none translate-x-0 translate-y-0 scale-100;
+  }
+  .design-menu-preview { @apply static; }
+  .design-toaster-preview { @apply static w-full max-w-[360px] p-0; }
+  .design-toaster-preview .toast { @apply animate-none; }
+
+  /* Drawer (sheet) miniature */
+  .design-drawer-preview {
+    @apply relative h-[220px] w-full overflow-hidden rounded-lg border border-border bg-background/60;
+  }
+  .design-drawer-preview .design-drawer-panel {
+    @apply absolute inset-y-0 right-0 flex w-[62%] flex-col gap-3 border-l border-border bg-card p-4 shadow-(--shadow-modal);
+  }
+  .design-drawer-preview header { @apply relative flex flex-col gap-1 pr-8; }
+  .design-drawer-preview header h2 { @apply text-sm font-medium; }
+  .design-drawer-preview header p { @apply text-xs text-muted-foreground; }
+  .design-drawer-preview header .btn { @apply absolute top-0 right-0; }
+  .design-drawer-preview section { @apply flex flex-col gap-3; }
+  .design-drawer-rows { @apply flex flex-col gap-2; }
+
+  /* Layout miniatures */
+  .design-frame {
+    @apply relative flex h-[240px] w-full gap-2 overflow-hidden rounded-lg border border-border bg-background p-2;
+  }
+  .design-frame-settings, .design-frame-inspector { @apply h-[220px]; }
+  .design-frame-inspector { @apply flex-col; }
+  .design-frame-page { @apply justify-center; }
+  .design-region {
+    @apply relative flex min-w-0 flex-col gap-2 rounded-md border border-dashed border-border-strong bg-card/60 p-3 pt-6;
+  }
+  .design-region > small {
+    @apply absolute top-1.5 left-2.5 text-[10px] font-medium text-muted-foreground;
+  }
+  .design-region-sidebar { @apply w-[24%] shrink-0; }
+  .design-region-main { @apply flex-1 justify-end; }
+  .design-region-aside { @apply w-[30%] shrink-0; }
+  .design-region-rail { @apply w-[26%] shrink-0; }
+  .design-region-content { @apply flex-1; }
+  .design-region-content > .design-block { @apply h-10; }
+  .design-region-page { @apply flex w-[78%] justify-center; }
+  .design-region-page > .design-region { @apply w-full; }
+  .design-region-header { @apply flex-row items-center justify-between pt-6; }
+  .design-frame-inspector .design-region { @apply flex-1; }
+  .design-frame-inspector .design-region-header { @apply max-h-12 flex-none; }
+  .design-close { @apply absolute top-3 right-3 text-muted-foreground; }
+  .design-close .icon { @apply size-3.5; }
+
+  .design-line { @apply block h-2 rounded-full bg-secondary; }
+  .design-line.is-active { @apply bg-primary/80; }
+  .design-line.is-title { @apply h-3 bg-foreground/60; }
+  .design-line.ln-30 { width: 30%; }
+  .design-line.ln-40 { width: 40%; }
+  .design-line.ln-50 { width: 50%; }
+  .design-line.ln-60 { width: 60%; }
+  .design-line.ln-70 { width: 70%; }
+  .design-line.ln-80 { width: 80%; }
+  .design-block { @apply block h-8 w-full rounded-md bg-secondary; }
+  .design-block.tall { @apply h-24; }
+  .design-grid-2 { @apply grid grid-cols-2 gap-2; }
+  .design-bubble { @apply block h-6 w-[55%] rounded-xl bg-secondary; }
+  .design-bubble.right { @apply self-end bg-accent; }
+  .design-composer { @apply mt-auto block h-8 w-full rounded-full border border-border bg-card; }
+  .design-actions { @apply flex gap-1; }
+  .design-actions i { @apply block size-4 rounded-md bg-secondary; }
+}
+
+/* 6. Product composites ---------------------------------------------------- */
+@layer components {
+  /* Composer: icon buttons either side of the textarea. Roundness comes from .btn-round (ui.iconButton round:true); this only sets size and colour. */
+  .composer .attach-button, .composer .voice-button, .composer .mention-button, .composer .send-button {
+    @apply size-[31px] flex-none p-0;
+  }
+  .composer .attach-button, .composer .mention-button { @apply bg-accent text-muted-foreground hover:text-foreground; }
+  .composer .voice-button { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
+  .composer .voice-button.online { @apply bg-success text-primary-foreground; }
+  .composer .send-button { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
+  .composer .send-button:disabled { @apply bg-secondary text-faint opacity-100; }
+  .composer .send-button.is-stop { @apply bg-accent text-foreground; }
+  .composer .attach-button .icon, .composer .voice-button .icon, .composer .mention-button .icon, .composer .send-button .icon { @apply size-4; }
+
+  /* Legacy dialogs (screenshot preview) keep centring after preflight. */
+  dialog:not(.dialog):not(.alert-dialog):not(.drawer) { @apply m-auto; }
+  dialog:not(.dialog):not(.alert-dialog):not(.drawer)::backdrop { @apply bg-black/60; }
+
+  /* Header title rendered as a button (rename on click). */
+  .conversation-title { @apply rounded-md border-0 bg-transparent p-0 font-[inherit] text-inherit hover:text-brand-strong; }
+
+  /* Inline form messages. */
+  .form-note { @apply mt-2 text-xs text-muted-foreground; }
+  .form-error { @apply my-2 min-h-4 text-xs text-destructive; }
+  .form-error:empty { @apply my-0 min-h-0; }
+  .dialog-actions { @apply mt-4 flex justify-end gap-2; }
+
+  /* Search / picker dialogs. */
+  .search-controls { @apply mb-3 flex items-center gap-2; }
+  /* Recipient field (rule padded-fields): the row owns fill, radius and px-3; the input is flush and transparent. State resets live in the policy layer. */
+  .recipient-field, html.dark .recipient-field { @apply mb-2 flex h-9 items-center gap-3 rounded-lg bg-overlay-1 px-3; }
+  .recipient-field label { @apply shrink-0 text-[13px] text-muted-foreground; }
+  .recipient-field .input, html.dark .recipient-field .input { @apply h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none; }
+  .dialog .search-results .search-result { @apply h-auto min-h-9 gap-2.5 px-2.5 py-1.5 font-normal; }
+  .dialog .search-results .search-result > span:not(.avatar) { @apply flex-1 truncate text-left; }
+  .dialog .search-results .search-result[aria-pressed='true'] { @apply bg-accent; }
+  .group-chips { @apply flex flex-wrap items-center gap-2 px-2 py-2 text-xs; }
+  .group-targets { @apply flex flex-wrap items-center gap-2 px-4 py-2 text-xs; }
+  .recipient-avatar { @apply shrink-0; }
+
+  /* Group inspector. */
+  .group-member-remove { @apply text-destructive opacity-0 pointer-events-none; }
+  .group-member-row:hover .group-member-remove, .group-member-row:focus-within .group-member-remove { @apply opacity-100 pointer-events-auto; }
+  .group-member-remove:disabled { @apply opacity-40 cursor-not-allowed; }
+  .group-member-row:not(:hover):not(:focus-within) .group-member-remove:disabled { @apply opacity-0; }
+  @media (hover: none) { .group-member-row .group-member-remove { @apply opacity-100 pointer-events-auto; } }
+  .group-member-more { @apply text-muted-foreground; }
+  .group-add-member { @apply mx-2 my-1 text-muted-foreground; }
+  .inspector-back { @apply mb-2 -ml-2 text-muted-foreground; }
+  .recent-gallery > header [role='group'] { @apply flex gap-0.5; }
+  .recent-gallery > header .btn[aria-pressed='true'] { @apply bg-accent text-foreground; }
+  .group-view-tabs { @apply px-4; }
+
+  /* Context menu footnote (e.g. why removal is blocked). */
+  .menu-note { @apply block px-2.5 pb-2 pt-1 text-[10px] text-muted-foreground; }
+
+  /* Sidebar: static links are ghost buttons; keep them left-aligned. */
+  /* List item: sandbox and group rows in the sidebar. --list-item-avatar stays within 30–36px. */
+  .bot-list-item {
+    --list-item-avatar: 34px;
+    @apply grid w-full cursor-default items-start gap-3 rounded-[10px] border-0 bg-transparent px-2.5 py-3 text-left;
+    grid-template-columns: var(--list-item-avatar) minmax(0, 1fr) auto;
+  }
+  /* Hover fill: overlay-2. Selected (is-active) fill: accent, which also wins over hover. */
+  .bot-list-row:hover .bot-list-item, html.dark .bot-list-row:hover .bot-list-item { @apply bg-overlay-2; }
+  .bot-list-item.is-active, html.dark .bot-list-item.is-active,
+  .bot-list-row:hover .bot-list-item.is-active, html.dark .bot-list-row:hover .bot-list-item.is-active,
+  .bot-list-item:focus-visible { @apply bg-accent; }
+  .bot-list-item .mini-avatar { @apply grid shrink-0 place-items-center overflow-hidden rounded-lg; width: var(--list-item-avatar); height: var(--list-item-avatar); }
+  .bot-list-item .mini-avatar.avatar[data-size] > span, html.dark .bot-list-item .mini-avatar.avatar[data-size] > span { @apply text-2xl leading-none; }
+  .bot-list-item .mini-avatar .icon { @apply size-6; }
+  .bot-list-item .mini-avatar img { @apply size-full; }
+  .bot-list-copy { @apply grid min-w-0 gap-0.5 text-left; }
+  .bot-list-copy strong { @apply truncate text-sm leading-tight font-normal text-foreground; }
+  .bot-list-copy small { @apply hidden; }
+  .bot-list-copy > strong:has(.group-lead-badge) { @apply flex items-center; }
+  .bot-preview { @apply block truncate text-[13px] leading-tight text-muted-foreground; }
+  .bot-time { @apply shrink-0 pt-px text-[11px] leading-tight text-muted-foreground tabular-nums whitespace-nowrap; }
+  @media (max-width: 760px) {
+    .manager-sidebar .bot-time { @apply hidden; }
+  }
+
+  /* Workspace row: sidebar footer button that opens the workspace menu. */
+  .workspace-row { @apply flex w-full items-center gap-2.5 rounded-[10px] border-0 bg-transparent px-2 py-2 text-left; }
+  .workspace-row:hover, html.dark .workspace-row:hover { @apply bg-overlay-1; }
+  .workspace-row[aria-expanded='true'], html.dark .workspace-row[aria-expanded='true'] { @apply bg-overlay-2; }
+  .workspace-mark { @apply grid size-[30px] shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-foreground; }
+  .workspace-copy { @apply grid min-w-0 gap-0.5; }
+  .workspace-copy strong { @apply truncate text-xs leading-tight font-normal; }
+  .workspace-copy small { @apply truncate text-[10px] leading-tight text-faint; }
+
+  /* Nav list + nav link: every stacked navigation list shares one gap and one row style */
+  .nav-list { @apply flex flex-col gap-(--gap-list); }
+  .nav-link {
+    @apply flex w-full shrink-0 items-center gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-[13px] font-normal text-foreground shadow-none outline-hidden;
+    min-height: 2rem;
+  }
+  .nav-link:hover, html.dark .nav-link:hover { @apply bg-accent text-foreground; }
+  .nav-link.selected, html.dark .nav-link.selected, .nav-link.is-active, html.dark .nav-link.is-active { @apply bg-elevated text-foreground; }
+  .nav-link .icon { @apply size-4 shrink-0 text-muted-foreground; }
+  .nav-link.selected .icon, .nav-link:hover .icon { @apply text-foreground; }
+  .nav-link > span { @apply min-w-0 truncate; }
+  .nav-link[data-size='sm'] { @apply rounded-md px-3 text-xs text-muted-foreground; min-height: 1.625rem; }
+  .nav-link[data-size='sm'] > span { @apply whitespace-normal; }
+  .nav-link[data-size='sm']:hover, html.dark .nav-link[data-size='sm']:hover { @apply bg-secondary text-foreground; }
+  .nav-link:focus-visible, html.dark .nav-link:focus-visible { @apply bg-accent text-foreground; }
+}
+
+/* 7. Focus policy (layer `policy`: last layer, wins over Basecoat) ---------- */
+@layer policy {
+  /* Kit controls: drop Basecoat's 3px ring, keep a 1px border colour change. */
+  .btn, .input, .textarea, select.select, [role='tab'], [role='menuitem'], .chip, .bot-list-item, .search-result {
+    @apply focus-visible:ring-0 focus-visible:outline-hidden;
+  }
+  /* Text fields: the caret is the focus indicator; the border never changes. */
+  :is(.input, .textarea, select.select, .field > :is(input, textarea, select)):focus-visible {
+    @apply border-input ring-0 outline-hidden;
+  }
+  /* Recipient field: Basecoat's dark:bg-input/30 on .input has higher specificity than a descendant selector, so the reset lives here. */
+  .recipient-field .input, html.dark .recipient-field .input,
+  .recipient-field .input:is(:hover, :focus, :focus-visible), html.dark .recipient-field .input:is(:hover, :focus, :focus-visible) {
+    @apply border-0 bg-transparent px-0 ring-0 shadow-none outline-hidden;
+  }
+  .composer:focus-within { border-color: var(--border); }
+  /* Buttons and chips: keyboard focus is a 1px border in the ring colour. */
+  :is(.btn, .chip):focus-visible { @apply border-ring; }
+  .btn[data-variant='ghost']:focus-visible, .btn[data-variant='link']:focus-visible, [role='tab']:focus-visible, [role='menuitem']:focus-visible, .bot-list-item:focus-visible, .search-result:focus-visible {
+    @apply bg-accent text-accent-foreground;
+  }
+  /* Everything else focusable (links, tiles, summaries): a 1px inset line, never an outline. */
+  :where(a, summary, [tabindex]):not(.btn):focus-visible {
+    @apply outline-hidden shadow-[inset_0_0_0_1px_var(--ring)];
+  }
+  :focus:not(:focus-visible) { @apply outline-hidden; }
+  /* Native form controls without a kit class (legacy inputs): never the browser outline. */
+  :where(input, textarea, select, button):focus-visible { @apply outline-hidden; }
+
+  /* Reply / Task details stay in flow so hover never changes transcript height. */
+  .message-stack { position: relative; }
+  .message-stack:has(.message-tools),
+  .message-stack:has(details) { padding-bottom: 0; }
+  .message-tools {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    margin-top: 4px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .message details {
+    position: static;
+    height: auto;
+    overflow: visible;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .message:hover .message-tools,
+  .message:focus-within .message-tools,
+  .message:hover details,
+  .message:focus-within details {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* 8. Panel motion (rule animate-layout) -------------------------------------- */
+/* The inspector column is a registered length so the grid track itself interpolates:
+   .workspace transitions --panel-col between var(--computer) and 0px, the conversation
+   column (and its composer) grows every frame, and the panel keeps its full width while
+   the shrinking track carries it past the clipped right edge. visibility flips only when
+   the transition ends, which also removes the hidden panel from the tab order. */
+@property --panel-col { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@layer components {
+  @media (min-width: 761px) {
+    .workspace {
+      --panel-col: var(--computer);
+      grid-template-columns: minmax(0, 1fr) var(--panel-col);
+      overflow-x: clip;
+      transition: --panel-col var(--duration-base) var(--ease-out);
+    }
+    .workspace.is-computer-collapsed { --panel-col: 0px; }
+    .workspace .computer-panel {
+      width: var(--computer);
+      transition: opacity var(--duration-base) var(--ease-out), visibility 0s linear 0s;
+    }
+    .workspace.is-computer-collapsed .computer-panel {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity var(--duration-base) var(--ease-out), visibility 0s linear var(--duration-base);
+    }
+    /* The header toggle that reveals the panel exists only while the panel is hidden (rule icon-toggles).
+       It keeps its slot so the header never jumps, and fades in once the panel has finished closing. */
+    .workspace .panel-toggle {
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(.9);
+      transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), visibility 0s linear var(--duration-fast);
+    }
+    .workspace.is-computer-collapsed .panel-toggle {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      transition-delay: var(--duration-base);
+    }
+  }
+  @media (max-width: 760px) {
+    .workspace.show-computer .panel-toggle { visibility: hidden; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .workspace, .workspace .computer-panel, .workspace .panel-toggle, .design-motion-demo, .design-motion-panel, .design-motion-toggle { transition: none; }
+  }
+}
+
+/* 9. Rules page ------------------------------------------------------------- */
+@layer components {
+  .design-pages { @apply mt-3 -mx-3 border-t border-border px-3 pt-3; }
+  .design-pages + .design-index { @apply mt-1 border-t-0 pt-1; }
+  .design-rules .design-section { @apply pt-0; }
+  .design-rule { @apply mb-9; }
+  .design-compare { @apply grid grid-cols-2 gap-3; }
+  .design-example { @apply flex min-w-0 flex-col gap-2; }
+  .design-verdict { @apply inline-flex items-center gap-1.5 text-xs font-medium; }
+  .design-example[data-verdict='do'] .design-verdict { @apply text-success; }
+  .design-example[data-verdict='dont'] .design-verdict { @apply text-destructive; }
+  .design-example .design-preview { @apply min-h-24 flex-1; }
+  .design-example[data-verdict='dont'] .design-preview { @apply border-dashed opacity-90; }
+  .design-rule-check { @apply mt-3 flex items-center gap-1.5 text-xs text-muted-foreground; }
+  .design-rule-check .icon { @apply size-3.5 shrink-0; }
+  .design-rule-stack { @apply flex w-full flex-col gap-2; }
+  .design-rule-stack .setting-label { @apply m-0; }
+  .design-rule-stack .setting-item { @apply w-full; }
+  .design-rule-note { @apply basis-full text-xs text-muted-foreground; }
+  .design-eyebrow { @apply text-[10px] font-semibold tracking-[.11em] text-faint uppercase; }
+  .design-focus-good { @apply border-ring!; }
+  .design-rule-stack .btn { @apply self-start; }
+  .design-focus-bad { @apply border-ring! ring-3 ring-ring/50 outline-2 outline-offset-2 outline-ring!; }
+  /* Rule padded-fields, "don't" example: the input carries its own fill but no padding. Only allowed here. */
+  .design-bad-field, html.dark .design-bad-field { @apply bg-transparent px-0; }
+  .design-bad-field .input, html.dark .design-bad-field .input { @apply rounded-md bg-overlay-2! px-0; }
+  .design-glyphs { @apply text-lg leading-none tracking-widest text-muted-foreground; }
+  .design-code { @apply w-full overflow-x-auto rounded-md bg-secondary px-3 py-2 font-mono text-xs text-foreground; }
+  .design-rule-swatch { @apply inline-block size-6 rounded-md border border-border; }
+  .design-gap-demo { @apply flex gap-(--gap-section); }
+  .design-gap-nav { @apply flex flex-col items-stretch; }
+  .design-gap-nav .btn { @apply justify-start; }
+  .design-misaligned-settings > label { @apply flex items-center gap-2 text-xs text-muted-foreground; }
+  .design-rule-stack .setting-grid { @apply w-full; }
+  .design-rule-stack .setting-grid .btn { @apply self-center; }
+  .design-rules .design-preview code { @apply rounded bg-secondary px-1.5 py-0.5 text-xs; }
+
+  /* Motion foundation and rules animate-layout / icon-toggles: a miniature conversation + panel. */
+  .design-motion { @apply flex w-full flex-col gap-2; }
+  .design-motion-token { @apply grid grid-cols-[132px_140px_minmax(0,1fr)] items-center gap-3 text-xs; }
+  .design-motion-token strong { @apply font-mono font-normal text-foreground; }
+  .design-motion-token small { @apply text-muted-foreground; }
+  .design-motion-demo {
+    --demo-col: 96px;
+    @apply grid h-24 w-full overflow-clip rounded-lg border border-border bg-background;
+    grid-template-columns: minmax(0, 1fr) var(--demo-col);
+    transition: --demo-col var(--duration-base) var(--ease-out);
+  }
+  .design-motion-demo.is-hidden { --demo-col: 0px; }
+  .design-motion-chat { @apply relative flex min-w-0 flex-col justify-between p-2; }
+  .design-motion-header { @apply flex h-6 items-center justify-end; }
+  .design-motion-composer { @apply block h-6 w-full rounded-full border border-border bg-card; }
+  .design-motion-panel {
+    @apply w-24 border-l border-border bg-panel p-2;
+    transition: opacity var(--duration-base) var(--ease-out), visibility 0s linear 0s;
+  }
+  .design-motion-demo.is-hidden .design-motion-panel { opacity: 0; visibility: hidden; transition: opacity var(--duration-base) var(--ease-out), visibility 0s linear var(--duration-base); }
+  .design-motion-toggle {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(.9);
+    transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), visibility 0s linear var(--duration-fast);
+  }
+  .design-motion-demo.is-hidden .design-motion-toggle { opacity: 1; visibility: visible; transform: none; transition-delay: var(--duration-base); }
+  /* "Don't" variants: the popped panel is gone with display:none; the text toggle sits beside an open panel. */
+  .design-motion-demo.is-pop, .design-motion-demo.is-pop .design-motion-panel, .design-motion-demo.is-pop .design-motion-toggle { transition: none; }
+  .design-motion-demo.is-pop .design-motion-panel { display: none; }
+  .design-motion-text-toggle .design-motion-header { @apply justify-start; }
+}
+@property --demo-col { syntax: '<length>'; inherits: true; initial-value: 96px; }
+
+/* Shared running-state motion: text and normalized SVG paths share a two-second sweep. */
+.ui-running-text {
+  background: linear-gradient(100deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: ui-running-text-sweep 2s linear infinite;
+}
+.ui-shimmer-base { stop-color: var(--muted-foreground); }
+.ui-shimmer-highlight { stop-color: var(--foreground); }
+.ui-running-arrow {
+  stroke: var(--foreground);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 12 88;
+  animation: ui-running-arrow-sweep 2s linear infinite;
+}
+@keyframes ui-running-text-sweep { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+@keyframes ui-running-arrow-sweep { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-running-text { animation: none; background: none; color: var(--foreground); }
+  .ui-running-svg-text { fill: var(--foreground) !important; }
+  .ui-running-arrow { animation: none; stroke-dasharray: none; opacity: .6; }
+}
+
+.settings-nav-heading {
+  margin: 20px 12px 4px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.chat-reference { position:relative; display:inline-flex; align-items:center; gap:3px; color:var(--brand); border-radius:4px; padding:0 3px; background:color-mix(in srgb,var(--brand) 8%,transparent); cursor:help; }
+.chat-reference > .icon { width:14px; height:14px; }
+.chat-reference-preview { display:none; position:absolute; bottom:calc(100% + 6px); left:0; z-index:60; width:250px; padding:12px; border-radius:10px; background:var(--popover); color:var(--popover-foreground); box-shadow:var(--shadow-floating); font-size:12px; line-height:1.5; white-space:normal; }
+.chat-reference:hover > .chat-reference-preview,.chat-reference:focus > .chat-reference-preview { display:flex; flex-direction:column; gap:5px; }
+.chat-reference-preview small { color:var(--muted-foreground); }

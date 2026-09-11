@@ -1,0 +1,109 @@
+/*
+ * Hermesaki theme, adapted from Codex-Linus design tokens.
+ *
+ * Purpose: the single source of truth for colour, radius and type tokens.
+ * Basecoat components, the Design page (Settings → Design) and app CSS in
+ * ui.html all read these variables. Hermesaki uses a warm light theme.
+ *
+ * Token groups:
+ *   shadcn core  — background, foreground, card, popover, primary, secondary,
+ *                  muted, accent, destructive, border, input, ring, radius
+ *   extended     — brand (blue highlight), faint text, strong border, status
+ *                  colours and the translucent panel used by the sidebar
+ *
+ * Usage: edit values here, then `bun run build:css`. Do not hard-code colours
+ * in component CSS; reference a token.
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --background: #f6f1e7;
+  --foreground: #292a23;
+  --card: #fffdf8;
+  --card-foreground: #292a23;
+  --popover: #fffdf8;
+  --popover-foreground: #292a23;
+
+  /* Interactive */
+  --primary: #c75c30;
+  --primary-foreground: #ffffff;
+  --secondary: #eee8dd;
+  --secondary-foreground: #292a23;
+  --muted: #eee8dd;
+  --muted-foreground: #706d63;
+  --accent: #f1dfd1;
+  --accent-foreground: #753519;
+  --destructive: #b23832;
+
+  /* Lines and focus */
+  --border: #ddd6c8;
+  --input: #cec5b6;
+  --ring: #c75c30;
+  --radius: 0.625rem;
+  /* Spacing rhythm (rule consistent-gaps): lists of like rows share --gap-list; blocks share --gap-stack. */
+  --gap-list: 2px;
+  --gap-stack: 8px;
+  --gap-section: 16px;
+  /* Motion (rule animate-layout): panels slide over --duration-base; small reveals use --duration-fast. */
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+
+  /* Extended: brand highlight and text steps */
+  --brand: #c75c30;
+  --brand-strong: #a84922;
+  --faint: #79756b;
+  --border-strong: #c7beae;
+  --panel: #f3ede2;
+  --elevated: #e9e1d4;
+  /* Translucent hover/selection overlays on dark surfaces */
+  --overlay-1: rgba(41,42,35,.025);
+  --overlay-2: rgba(41,42,35,.05);
+  --overlay-3: rgba(41,42,35,.08);
+  /* Elevation: the only shadows in the app, plus the dialog backdrop */
+  --shadow-floating: 0 8px 30px rgb(41 42 35 / .12);
+  --shadow-modal: 0 20px 70px rgb(41 42 35 / .2);
+  --backdrop: rgba(0, 0, 0, 0.6);
+
+  /* Extended: status */
+  --success: #38723e;
+  --warning: #926011;
+  --danger: #b23832;
+  --info: #3f6886;
+  --green: var(--success);
+  --orange: var(--warning);
+  --red: var(--danger);
+  --yellow: var(--info);
+
+  /* Sidebar tokens (Basecoat sidebar component) follow the card surface */
+  --sidebar: #f3ede2;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Expose the extended tokens to Tailwind utilities (bg-brand, text-faint, border-border-strong …). */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-faint: var(--faint);
+  --color-border-strong: var(--border-strong);
+  --color-panel: var(--panel);
+  --color-elevated: var(--elevated);
+  --color-overlay-1: var(--overlay-1);
+  --color-overlay-2: var(--overlay-2);
+  --color-overlay-3: var(--overlay-3);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+}

@@ -20,7 +20,7 @@ export class Hermesaki {
     this.options={...options,baseUrl:options.baseUrl.replace(/\/$/,'')};
   }
   private async request<T>(path: string, method='GET', body?: unknown, key?: string): Promise<T> {
-    const headers: Record<string,string>={Authorization:`Bearer ${this.options.token}`,Accept:'application/json','User-Agent':'Hermesaki/0.1'};
+    const headers: Record<string,string>={...(this.options.token?{Authorization:`Bearer ${this.options.token}`} : {}),Accept:'application/json','User-Agent':'Hermesaki/0.1'};
     if(body!==undefined) headers['Content-Type']='application/json';
     if(key) headers['Idempotency-Key']=key;
     if(this.options.access) { headers['CF-Access-Client-Id']=this.options.access.clientId; headers['CF-Access-Client-Secret']=this.options.access.clientSecret; }

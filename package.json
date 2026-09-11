@@ -12,15 +12,19 @@
     "test:browser": "node packages/client/test/browser.mjs",
     "hermesaki": "node packages/client/dist/cli.js",
     "demo": "vite --config demo/vite.config.ts",
-    "demo:prepare": "npm run build && tsx demo/prepare.ts"
+    "demo:prepare": "npm run build && tsx demo/prepare.ts",
+    "build:ui": "tailwindcss -i landing/design-system/index.css -o landing/design-system/design-system.css --minify"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
     "@types/node": "22.19.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "basecoat-css": "1.0.2",
     "playwright": "1.58.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "tailwindcss": "4.3.3",
     "tsx": "^4.20.0",
     "typescript": "5.9.3",
     "vite": "^7.3.6"
