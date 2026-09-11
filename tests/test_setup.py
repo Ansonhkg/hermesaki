@@ -80,3 +80,27 @@ class SetupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class PasswordSetupTests(unittest.TestCase):
+    def test_password_claim_resume_and_expiration(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            setup=Setup(directory)
+            code=Path(directory,'bootstrap-token').read_text()
+            credentials={'username':'admin','password':'long-setup-password'}
+            result=setup.call('POST','/v1/setup/claim',code,credentials)
+            setup.call('GET','/v1/setup',result['session'],{})
+            with self.assertRaises(Rejected):setup.call('POST','/v1/setup/login','',credentials|{'password':'wrong'})
+            resumed=Setup(directory).call('POST','/v1/setup/login','',credentials)
+            with self.assertRaises(Rejected):setup.call('GET','/v1/setup',result['session'],{})
+            setup.call('GET','/v1/setup',resumed['session'],{})
+            self.assertNotIn(b'long-setup-password',Path(directory,'setup.sqlite').read_bytes())
+            with patch('hermesaki.setup.time.time',return_value=10**12):
+                with self.assertRaises(Rejected):setup.call('GET','/v1/setup',resumed['session'],{})
+    def test_password_login_throttle_persists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            setup=Setup(directory)
+            for _ in range(10):
+                with self.assertRaises(Rejected):setup.call('POST','/v1/setup/login','',{'username':'admin','password':'wrong'})
+            with self.assertRaises(Rejected) as error:Setup(directory).call('POST','/v1/setup/login','',{})
+            self.assertEqual(error.exception.status,429)

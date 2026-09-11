@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 from urllib.parse import parse_qs
 import jwt
-from . import sessions
+from . import sessions, administrators
 from .config import Config
 from .store import Store, Problem
 from .mail import Mail, Stalwart
@@ -16,6 +16,7 @@ class App:
     def __init__(self, service):
         self.s = service
         self.c = service.config
+        if self.c.mode != "production":administrators.prepare_setup(self.s.store,self.c.state)
         self.jwks = (
             jwt.PyJWKClient(
                 "https://"
@@ -29,6 +30,7 @@ class App:
     def __call__(self, environ, start):
         status = 200
         actor = None
+        claims = {}
         extra_headers = []
         try:
             path = environ.get("PATH_INFO", "/")
@@ -39,11 +41,12 @@ class App:
                 if self.jwks:
                     token = environ.get("HTTP_CF_ACCESS_JWT_ASSERTION", "")
                     try:
-                        jwt.decode(
+                        claims = jwt.decode(
                             token,
                             self.jwks.get_signing_key_from_jwt(token).key,
                             algorithms=["RS256"],
                             audience=self.c.access_aud,
+                            options={"require":["exp","iss","aud","sub"]},
                             issuer="https://"
                             + self.c.access_team
                             + ".cloudflareaccess.com",
@@ -53,9 +56,10 @@ class App:
                 if method == "GET" and path in ("/onboarding", "/onboarding/", "/ui/onboarding", "/ui/onboarding/", "/ui/onboarding/index.html", "/ui/", "/ui/index.html"):
                     start("303 See Other", [("Location", "/inboxes"), ("Cache-Control", "no-store")])
                     return [b""]
-                if (path.startswith("/ui/") or path in ("/welcome", "/welcome/setup")) and method == "GET":
+                if (path.startswith("/ui/") or path in ("/welcome", "/welcome/setup", "/welcome/api") or path.startswith("/welcome/api/")) and method == "GET":
                     root = Path(__file__).resolve().parents[2] / "landing"
                     relative = {"/welcome": "index.html", "/welcome/setup": "get-started.html"}.get(path, path.removeprefix("/ui/") or "index.html")
+                    if path == "/welcome/api" or path.startswith("/welcome/api/"): relative = "api/public.html"
                     file = (root / relative).resolve()
                     if not file.is_relative_to(root.resolve()):
                         raise Problem(404, "not_found")
@@ -95,17 +99,43 @@ class App:
                     )
                     return [body]
                 header = environ.get("HTTP_AUTHORIZATION", "")
+                if path == '/v1/auth' and method == 'GET':
+                    result={'mode':'cloudflare' if self.jwks else 'password','configured':bool(administrators.saved(self.s.store)) if not self.jwks else bool(self.c.admin_emails)}
+                    start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store')])
+                    return [json.dumps(result).encode()]
+                if path == '/v1/auth/setup' and method == 'POST':
+                    sessions.same_origin(self.c,environ)
+                    if self.jwks:raise Problem(403,'cloudflare_sign_in_required')
+                    length=int(environ.get('CONTENT_LENGTH') or 0)
+                    if not 0<length<=4096:raise Problem(400,'invalid_request')
+                    data=json.loads(environ['wsgi.input'].read(length))
+                    if not isinstance(data,dict):raise Problem(400,'invalid_request')
+                    administrators.setup(self.s.store,self.c.state,data)
+                    start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store')])
+                    return [b'{"configured":true}']
                 if path == '/v1/session' and method == 'POST':
                     sessions.same_origin(self.c,environ)
-                    if not header.startswith('Bearer '): raise Problem(401,'token_required')
-                    raw,expires=sessions.issue(self.s.store,header[7:],sessions.cookie_id(environ))
+                    if self.jwks:
+                        actor=administrators.cloudflare(self.c,claims)
+                    else:
+                        length=int(environ.get('CONTENT_LENGTH') or 0)
+                        if not 0<length<=4096:raise Problem(400,'invalid_credentials')
+                        data=json.loads(environ['wsgi.input'].read(length))
+                        if not isinstance(data,dict):raise Problem(400,'invalid_credentials')
+                        actor=administrators.login(self.s.store,data.get('username'),data.get('password'))
+                    raw,expires=sessions.issue(self.s.store,actor,sessions.cookie_id(environ))
                     start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store'),sessions.header(self.c,raw)])
                     return [json.dumps({'authenticated':True,'expires':expires}).encode()]
                 if header.startswith('Bearer '):
                     actor = self.s.store.auth(header[7:])
+                    if 'admin' in actor['scopes']:raise Problem(401,'operator_tokens_retired')
                 else:
                     if method not in ('GET','HEAD'): sessions.same_origin(self.c,environ)
                     actor = sessions.authenticate(self.s.store,sessions.cookie_id(environ))
+                    if self.jwks:
+                        verified=administrators.cloudflare(self.c,claims)
+                        if actor['id']!=verified['id']:raise Problem(401,'session_identity_changed')
+                    elif actor.get('provider')!='password':raise Problem(401,'invalid_token')
                 if path == '/v1/session':
                     self.s.permit(actor,'admin')
                     if method == 'DELETE':
@@ -176,6 +206,7 @@ class App:
                 405: "Method Not Allowed",
                 409: "Conflict",
                 413: "Content Too Large",
+                429: "Too Many Requests",
                 502: "Bad Gateway",
             }.get(status, "Error"),
             [

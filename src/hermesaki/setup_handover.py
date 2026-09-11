@@ -25,4 +25,4 @@ def handover(verification, settings, plan_id, now=None):
             'plan_id': plan_id, 'operator_url': 'https://' + operator,
             'webmail_url': 'https://' + inbox, 'mcp_url': 'https://' + operator + '/mcp',
             'next_action': 'open_operator', 'setup_mutations_retired': True,
-            'authentication': 'Use the saved operator credential for the app and scoped mailbox credentials for agents.'}
+            'authentication': 'Sign in through Cloudflare Access as the configured owner. Agents use scoped mailbox keys.'}

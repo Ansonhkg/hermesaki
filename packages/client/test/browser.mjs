@@ -1,12 +1,14 @@
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import {administratorSession} from './admin-session.mjs';
 const b=await chromium.launch({headless:true});
 try{
  const p=await b.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const errors=[];p.on('pageerror',e=>errors.push(e.message));
- await p.goto((process.env.HERMESAKI_URL||'http://localhost:19100')+'/ui/onboarding/live.html');
- await p.locator('#owner-token').fill('invalid-demo-token');await p.locator('#login-form button').click();await p.locator('#status.error').waitFor();
- await p.locator('#owner-token').fill((await readFile(process.env.HERMESAKI_ADMIN_FILE||'.runtime/product/operator-token','utf8')).trim());await p.locator('#login-form button').click();await p.locator('#create').waitFor({state:'visible'});
+ const baseUrl=process.env.HERMESAKI_URL||'http://localhost:19100';const {credentials}=await administratorSession(baseUrl);
+ await p.goto(baseUrl+'/login');
+ await p.locator('#username').fill(credentials.username);await p.locator('#password').fill('incorrect-password');await p.locator('#connect').click();await p.locator('#error').filter({hasText:'Incorrect'}).waitFor();
+ await p.locator('#password').fill(credentials.password);await p.locator('#connect').click();await p.locator('#sidebar').waitFor({state:'visible'});await p.getByRole('button',{name:'Inboxes',exact:true}).click();await p.locator('#create').waitFor({state:'visible'});
  const local='browser-'+Date.now();await p.locator('#local-name').fill(local);
  await p.route('**/v1/inboxes',r=>r.request().method()==='POST'?r.fulfill({status:502,contentType:'application/json',body:'{"error":"service_unavailable"}'}):r.continue());await p.locator('#create-form button').click();await p.locator('#status.error').waitFor();await p.unroute('**/v1/inboxes');
  await p.locator('#create-form button').click();await p.locator('#issued').waitFor({state:'visible'});await p.locator('#check').click();await p.locator('#checked').waitFor({state:'visible'});await p.locator('#send-test').click();await p.waitForFunction(()=>document.querySelector('#status').textContent.includes('arrived'),{},{timeout:45000});

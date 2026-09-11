@@ -120,8 +120,8 @@ def run(phase):
         s = Store(c.state)
         svc = Service(c, s, None, api)
         actor = {"id": "setup", "scopes": ["admin"]}
-        if not (root / "operator-token").exists():
-            (root / "operator-token").write_text(s.token(None, ["admin"])["token"])
+        from .administrators import prepare_setup
+        if not production:prepare_setup(s,c.state)
         if production:
             (root / "management.json").write_text(
                 (root / "permanent-management.json").read_text()

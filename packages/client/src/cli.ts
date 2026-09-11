@@ -17,13 +17,16 @@ const usage=`hermesaki <command> [options]
   test-message --inbox ID --key UNIQUE_KEY  Local captured-mail only
   tools                           List MCP tools
 Use HERMESAKI_URL and HERMESAKI_TOKEN_FILE (or HERMESAKI_TOKEN).
+Administrator commands use HERMESAKI_SESSION_FILE with an authenticated session cookie.
 Optional CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET. No tokens in arguments.`;
 async function main(){
  const {positionals,values:v}=parseArgs({allowPositionals:true,options:Object.fromEntries(['email','inbox','out','scopes','ttl','id','uid','query','file','key','offset','folder'].map(x=>[x,{type:'string' as const}]))});
  const command=positionals[0];if(!command||command==='help'){console.log(usage);return;}
  const token=process.env.HERMESAKI_TOKEN_FILE?(await readFile(process.env.HERMESAKI_TOKEN_FILE,'utf8')).trim():process.env.HERMESAKI_TOKEN;
- if(!token)throw Error('Set HERMESAKI_TOKEN_FILE or HERMESAKI_TOKEN');
- const c=new Hermesaki({baseUrl:process.env.HERMESAKI_URL??'http://localhost:19100',token,access:process.env.CF_ACCESS_CLIENT_ID?{clientId:process.env.CF_ACCESS_CLIENT_ID,clientSecret:process.env.CF_ACCESS_CLIENT_SECRET??''}:undefined});
+ const session=process.env.HERMESAKI_SESSION_FILE?(await readFile(process.env.HERMESAKI_SESSION_FILE,'utf8')).trim():'';
+ if(!token&&!session)throw Error('Set HERMESAKI_TOKEN_FILE or HERMESAKI_SESSION_FILE');
+ const baseUrl=process.env.HERMESAKI_URL??'http://localhost:19100';
+ const c=new Hermesaki({baseUrl,token:token??'',fetch:session&&!token?((url,init)=>fetch(url,{...init,headers:{...init?.headers,Cookie:session,Origin:new URL(baseUrl).origin}})):undefined,access:process.env.CF_ACCESS_CLIENT_ID?{clientId:process.env.CF_ACCESS_CLIENT_ID,clientSecret:process.env.CF_ACCESS_CLIENT_SECRET??''}:undefined});
  const need=(k:string)=>{if(!v[k])throw Error(`Missing --${k}`);return v[k]!;};
  let r:unknown;
  switch(command){

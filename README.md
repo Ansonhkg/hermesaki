@@ -23,7 +23,7 @@ make restore-test # restore a complete encrypted snapshot into another stack
 | Captured outbound mail | http://localhost:19125 |
 | MCP endpoint | http://localhost:19100/mcp |
 
-`make credentials` displays the fictional webmail passwords locally. The operator token is in `.runtime/product/operator-token`; paste it into the operator page. Alice's development API token is in `.runtime/product/alice-token`. These files are ignored by Git. Development tokens expire after 30 days; mint replacements with the operator API.
+`make credentials` displays the fictional webmail passwords locally. On first dashboard visit, create your administrator username and password using the one-time code in `.runtime/product/administrator-setup-code`. Production uses Cloudflare Access with the configured administrator email allowlist; it does not accept password sign-in. Alice's development API token is in `.runtime/product/alice-token`. These files are ignored by Git. Development tokens expire after 30 days; mint replacements with the operator API.
 
 Local mail, API and workers have no external network route. Only the loopback web proxy has a bridge network. Mail addressed outside the local domain goes to Mailpit, including addresses that look real. Production uses a separate Compose file with explicit SMTP egress.
 

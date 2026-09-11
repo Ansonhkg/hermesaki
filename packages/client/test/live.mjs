@@ -4,12 +4,14 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {Hermesaki} from '../dist/index.js';
+import {administratorSession} from './admin-session.mjs';
 const baseUrl=process.env.HERMESAKI_URL||'http://localhost:19100';
-const adminFile=process.env.HERMESAKI_ADMIN_FILE||'.runtime/product/operator-token';
-const admin=new Hermesaki({baseUrl,token:(await readFile(adminFile,'utf8')).trim()});
+const session=await administratorSession(baseUrl);
+const admin=new Hermesaki({baseUrl,token:'',fetch:session.fetch});
 const config=await admin.settings();assert.equal(config.mode,'development','Live suite only runs on local captured mail');
 const tmp=await mkdtemp(join(tmpdir(),'hermesaki-client-'));const suffix=Date.now();const boxes=[];
-const cli=(args,file=adminFile)=>JSON.parse(execFileSync(process.execPath,['packages/client/dist/cli.js',...args],{env:{...process.env,HERMESAKI_URL:baseUrl,HERMESAKI_TOKEN_FILE:file},encoding:'utf8'}));
+const adminFile=join(tmp,'session');await writeFile(adminFile,session.cookie,{mode:0o600});
+const cli=(args,file=adminFile)=>JSON.parse(execFileSync(process.execPath,['packages/client/dist/cli.js',...args],{env:{...process.env,HERMESAKI_URL:baseUrl,HERMESAKI_TOKEN_FILE:file===adminFile?'':file,HERMESAKI_SESSION_FILE:file===adminFile?file:''},encoding:'utf8'}));
 async function wait(fn){for(let n=0;n<45;n++){const r=await fn();if(r)return r;await new Promise(r=>setTimeout(r,1000));}throw Error('Mail did not arrive within 45 seconds');}
 try{
  const a=await admin.createInbox(`sdk-${suffix}@${config.domain}`);boxes.push(a);const b=cli(['create','--email',`cli-${suffix}@${config.domain}`]);boxes.push(b);

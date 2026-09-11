@@ -18,11 +18,10 @@ def cookie_id(environ):
 def same_origin(config,environ):
     if environ.get('HTTP_ORIGIN')!=config.public_url.rstrip('/'):
         raise Problem(403,'same_origin_required')
-def issue(store,token,old=''):
-    actor=store.auth(token)
-    if 'admin' not in actor['scopes']:raise Problem(403,'scope_denied')
+def issue(store,actor,old=''):
+    if not isinstance(actor,dict) or 'admin' not in actor.get('scopes',[]):raise Problem(403,'scope_denied')
     raw=secrets.token_urlsafe(32);k=key(raw);expires=time.time()+TTL
-    value=json.dumps({'token':store.seal(token,k),'expires':expires})
+    value=json.dumps({'actor':actor,'expires':expires})
     with store.db() as db:
         if old:db.execute('DELETE FROM meta WHERE key=?',(key(old),))
         db.execute('INSERT INTO meta VALUES(?,?)',(k,value))
@@ -37,7 +36,13 @@ def authenticate(store,raw):
     if not r:raise Problem(401,'invalid_token')
     value=json.loads(r[0])
     if value['expires']<=time.time():raise Problem(401,'invalid_token')
-    return store.auth(store.open(value['token'],k))
+    actor=value.get('actor')
+    if not actor:raise Problem(401,'invalid_token')
+    if actor['provider']=='password':
+        from .administrators import saved
+        record=saved(store)
+        if not record or record['revision']!=actor['revision']:raise Problem(401,'invalid_token')
+    return actor
 def revoke(store,raw):
     with store.db() as db:db.execute('DELETE FROM meta WHERE key=?',(key(raw),))
 def header(config,raw='',age=TTL):

@@ -30,10 +30,9 @@ function render(state) {
   $('#checks').replaceChildren(...state.checks.map(check=>{const li=document.createElement('li');li.textContent=check.id.replaceAll('_',' ')+' · '+check.state+(check.detail?' ('+check.detail+')':'');return li;}));
 }
 async function busy(form, action) {const button=form.querySelector('[type=submit]');button.disabled=true;$('#feedback').textContent='';try{await action();}catch(error){$('#feedback').textContent=error.message;if(form.id==='service-apply')$('#service-status').textContent=error.message;}finally{button.disabled=false;}}
-$('#generate').onclick=()=>{const bytes=crypto.getRandomValues(new Uint8Array(32));const value=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');$('#new-owner').value=value;const url=URL.createObjectURL(new Blob([value],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='hermesaki-owner-token.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('#feedback').textContent='Keep the downloaded owner credential private. You will need it to reconnect.';};
-$('#claim').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{const credential=$('#credential').value.trim();if(!claimed){const owner=$('#new-owner').value.trim();await request('/v1/setup/claim','POST',{owner_token:owner},credential);token=owner;claimed=true;}else token=credential;render(await request('/v1/setup'));$('#credential').value='';$('#new-owner').value='';$('#access').hidden=true;});};
+$('#claim').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{const data={username:$('#admin-username').value,password:$('#admin-password').value};const result=await request(claimed?'/v1/setup/login':'/v1/setup/claim','POST',data,$('#credential').value.trim());token=result.session;claimed=true;render(await request('/v1/setup'));$('#credential').value='';$('#admin-password').value='';$('#access').hidden=true;});};
 $('#settings').onsubmit=event=>{event.preventDefault();busy(event.target,async()=>{render(await request('/v1/setup/configuration','PUT',Object.fromEntries(new FormData(event.target))));$('#feedback').textContent='Configuration saved. Verification and deployment remain pending.';});};
-request('/v1/setup/status').then(state=>{claimed=state.claimed;$('#connect').disabled=false;$('#new-owner-label').hidden=claimed;$('#generate').hidden=claimed;$('#access-help').textContent=claimed?'This installation has an owner. Enter your saved owner credential.':'Read the bootstrap-token file on your server, then generate and save a new owner credential.';}).catch(error=>$('#feedback').textContent=error.message);
+request('/v1/setup/status').then(state=>{claimed=state.claimed;$('#connect').disabled=false;$('#bootstrap-label').hidden=claimed;$('#access-help').textContent=claimed?'Sign in with the administrator account created during setup.':'Read the bootstrap-token file on your server, then choose your administrator username and password.';}).catch(error=>$('#feedback').textContent=error.message);
 
 function renderProvider(plan) {
   providerPlan=plan;
@@ -104,7 +103,7 @@ $('#download-mailbox').onclick=async()=>{
   const credentials=await request('/v1/setup/services/credentials','POST',{});
   const url=URL.createObjectURL(new Blob([JSON.stringify(credentials,null,2)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download='hermesaki-mailbox-credentials.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-  $('#feedback').textContent='Mailbox and operator credentials downloaded. Keep this file private.';
+  $('#feedback').textContent='Mailbox credentials downloaded. Sign in to the dashboard through Cloudflare Access. Keep this file private.';
  }catch(error){$('#feedback').textContent=error.message;}
 };
 const renderSigning=render;

@@ -9,6 +9,9 @@ import json
 import os
 import re
 import secrets
+import time
+from . import administrators
+from .store import Problem
 import sqlite3
 from pathlib import Path
 from .setup_cloudflare import Cloudflare, CloudflareError, fingerprint, web_hosts
@@ -51,6 +54,8 @@ class Setup:
             db.execute("CREATE TABLE IF NOT EXISTS preflight (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS login_attempts (at REAL NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS administrator (id INTEGER PRIMARY KEY, record TEXT NOT NULL, session TEXT, expires REAL)")
             db.execute("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id=1), bootstrap TEXT NOT NULL, owner TEXT, settings TEXT)")
             if not db.execute("SELECT 1 FROM state").fetchone():
                 raw = secrets.token_urlsafe(32)
@@ -84,20 +89,40 @@ class Setup:
             row = db.execute("SELECT * FROM state WHERE id=1").fetchone()
             if method == "GET" and path == "/v1/setup/status":
                 return {"claimed": bool(row["owner"]), "api_version": "1", "next_action": "authenticate" if row["owner"] else "claim"}
+            if method == 'POST' and path == '/v1/setup/login':
+                db.execute('DELETE FROM login_attempts WHERE at<?',(time.time()-300,))
+                if db.execute('SELECT COUNT(*) FROM login_attempts').fetchone()[0]>=10:raise Rejected(429,'try_again_in_five_minutes')
+                db.execute('INSERT INTO login_attempts VALUES(?)',(time.time(),))
+                db.commit()
+                current=db.execute('SELECT * FROM administrator WHERE id=1').fetchone()
+                password=data.get('password','')
+                if not current or not isinstance(password,str) or len(password)>256:raise Rejected(401,'invalid_credentials')
+                record=json.loads(current['record'])
+                if data.get('username')!=record['username'] or not hmac.compare_digest(administrators.password_hash(password,record['salt']),record['hash']):raise Rejected(401,'invalid_credentials')
+                raw=secrets.token_urlsafe(32)
+                db.execute('UPDATE administrator SET session=?,expires=? WHERE id=1',(digest(raw),time.time()+43200))
+                return {'session':raw,'claimed':True}
             if method == "POST" and path == "/v1/setup/claim":
                 if row["owner"]:
                     raise Rejected(409, "owner_already_claimed")
                 if not token or not hmac.compare_digest(digest(token), row["bootstrap"]):
                     raise Rejected(401, "bootstrap_required")
-                owner = data.get("owner_token", "")
+                record=None
+                if 'username' in data:
+                    try:record=administrators.credentials(data.get('username'),data.get('password'))
+                    except Problem as error:raise Rejected(error.status,error.code)
+                owner = secrets.token_urlsafe(32) if record else data.get("owner_token", "")
                 # Supplied by client so a lost HTTP response cannot lose the owner credential.
                 if not isinstance(owner, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", owner) or owner == token:
                     raise Rejected(400, "generate_a_new_owner_token_with_32_random_bytes")
                 db.execute("UPDATE state SET owner=?,bootstrap='' WHERE id=1", (digest(owner),))
+                if record:db.execute('INSERT INTO administrator VALUES(1,?,?,?)',(json.dumps(record),digest(owner),time.time()+43200))
                 db.commit()
                 (self.directory / "bootstrap-token").unlink(missing_ok=True)
-                return {"claimed": True, "next_action": "configure"}
-            if not row["owner"] or not token or not hmac.compare_digest(digest(token), row["owner"]):
+                return {"claimed": True, "next_action": "configure", **({"session":owner} if record else {})}
+            administrator=db.execute('SELECT * FROM administrator WHERE id=1').fetchone()
+            valid=bool(token and (administrator['session'] and hmac.compare_digest(digest(token),administrator['session']) and administrator['expires']>time.time() if administrator else row['owner'] and hmac.compare_digest(digest(token),row['owner'])))
+            if not valid:
                 raise Rejected(401, "owner_required")
             completed = db.execute("SELECT value FROM completion WHERE id=1").fetchone()
             if completed:
@@ -216,7 +241,7 @@ from pathlib import Path
 import json
 app=create_app();s=app.s.store
 account=json.loads(Path('/state/first-mailbox.json').read_text())
-print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id'])['secret'],account['id']),'operator_token':Path('/state/operator-token').read_text()}))
+print(json.dumps({'email':account['email'],'password':s.open(s.inbox(account['id'])['secret'],account['id'])}))
 """
                 try:
                     return json.loads(Runtime(Services(self.directory)).dc("run","--rm","-T","api","python","-",stdin=script))
@@ -547,7 +572,7 @@ class App:
             code, body = 400, b'{"error":"invalid_request"}'
         except Exception:
             code, body = 500, b'{"error":"setup_unavailable"}'
-        labels = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 409: "Conflict", 413: "Content Too Large", 500: "Internal Server Error"}
+        labels = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 409: "Conflict", 413: "Content Too Large", 429: "Too Many Requests", 500: "Internal Server Error"}
         start(f"{code} {labels[code]}", [("Content-Type", content_type), ("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; form-action 'self'")])
         return [body]
 

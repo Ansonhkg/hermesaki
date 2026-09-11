@@ -1,6 +1,14 @@
 /* Shared table contract: preserve complete values; scroll the table, never the page. */
 body .table-wrap,body #api-page .table{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
 body main table{table-layout:auto;width:max-content;min-width:100%;max-width:none}
-body main table :is(th,td),body main #api-page table :is(th,td){white-space:nowrap;overflow-wrap:normal;word-break:normal;max-width:none;text-overflow:clip}
+body main table :is(th,td),body #api-page table :is(th,td){white-space:nowrap;overflow-wrap:normal;word-break:normal;max-width:none;text-overflow:clip}
 body main table :is(th,td) :is(a,span,code,summary,p){white-space:nowrap;overflow-wrap:normal;word-break:normal}
 body #workspace,body #workspace>.panel,body .dashboard-card{min-width:0}
+/* Complete table presentation; no dependency on the authenticated shell. */
+body main table{border-collapse:collapse;border-spacing:0;text-align:left;font-size:13px;line-height:1.6;background:var(--card,#fffdf8)}
+body main table :is(th,td){padding:14px 18px;border-bottom:1px solid var(--border,#ddd6c8);text-align:left;vertical-align:top}
+body main table th{background:var(--secondary,#eee8dd);color:var(--muted-foreground,#77766a);font-size:12px;font-weight:600}
+body main table tbody tr:last-child td{border-bottom:0}
+body main table tbody tr:hover{background:var(--muted,#f1ecdf)}
+body #api-page .table{border:1px solid var(--border,#ddd6c8);border-radius:8px;margin:24px 0;background:var(--card,#fffdf8)}
+body main table code{font:12px/1.6 var(--font-mono,monospace)}

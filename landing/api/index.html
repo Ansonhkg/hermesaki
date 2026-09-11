@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API documentation · Hermesaki</title><link rel="stylesheet" href="/ui/api/style.css"><script src="/ui/api/docs.js" defer></script></head><body><header><a href="/">Hermesaki</a><nav><a href="/ui/onboarding/live.html">Agent inboxes</a><a href="/docs/api-reference">API reference</a><a href="/docs/typescript-sdk">SDK & CLI</a></nav></header><main><h1>Build with your inbox.</h1><p>Read messages, connect an agent, and send with explicit permissions.</p><p>API base: <code id="base">Your installation origin</code> · MCP: <code id="mcp">/mcp</code></p><p>These examples do not execute requests. Replace placeholder inbox IDs and load credentials from your secret manager.</p><section id="reference"><h2>API and authentication</h2>
-<p>Every <code>/v1</code> endpoint and <code>/mcp</code> requires <code>Authorization: Bearer &lt;token&gt;</code>. In production, requests must also pass Cloudflare Access. Hermesaki validates the Access JWT issuer, audience and signature. A Cloudflare service token is a separate credential and does not replace the mailbox bearer token.</p>
+<p>Mailbox API endpoints and <code>/mcp</code> require a scoped <code>Authorization: Bearer &lt;token&gt;</code>. Administrator endpoints use an HttpOnly browser session: username/password locally, or an authorized Cloudflare Access identity in production. Operator bearer tokens are retired. In production, requests must also pass Cloudflare Access. Hermesaki validates the Access JWT issuer, audience and signature. A Cloudflare service token is a separate credential and does not replace the mailbox bearer token.</p>
 <p>Scopes are <code>admin</code>, <code>mail.read</code>, <code>mail.write</code> and <code>mail.delete</code>. Admin tokens manage inboxes and issue mailbox tokens; they do not implicitly read every mailbox. A mailbox token is bound to exactly one inbox. Create a token with only <code>mail.read</code> for agents that should inspect email. Token hashes are stored, and plaintext is returned only when issued.</p>
 <p>The operator dashboard uses a secure browser session after signing in. Sessions last up to 12 hours, survive refreshes, and end on sign-out or operator-key revocation. API and agent clients continue to use bearer tokens.</p><h3>Routes</h3>
 <div class="table"><table><thead><tr><th>Method and route</th><th>Permission</th><th>Result</th></tr></thead><tbody>
@@ -57,23 +57,19 @@ const messages = await mail.listMessages(&#x27;YOUR_INBOX_ID&#x27;);</code></pre
 <h3>CLI</h3>
 <p>Use <code>npm run hermesaki -- help</code> or <code>npm exec -- hermesaki help</code> from the repository. The packed package provides the <code>hermesaki</code> binary.</p>
 <div class="example"><button type="button">Copy</button><pre><code>export HERMESAKI_URL=http://localhost:19100
-export HERMESAKI_TOKEN_FILE=.runtime/product/operator-token
-npm run hermesaki -- create --email atlas@example.test
-npm run hermesaki -- token --inbox YOUR_INBOX_ID --out .runtime/atlas-token
-
 export HERMESAKI_TOKEN_FILE=.runtime/atlas-token
 npm run hermesaki -- folders --inbox YOUR_INBOX_ID
 npm run hermesaki -- messages --inbox YOUR_INBOX_ID</code></pre></div>
 <p>Token issuance writes to a new file with mode 0600, never stdout. It refuses to overwrite an existing file and revokes the issued token if saving fails. Other commands output JSON; message-read commands intentionally include requested mail content. Credentials are accepted from files or environment variables, not command arguments. Use <code>--scopes mail.read,mail.write</code> to enable sending, and <code>--ttl</code> to set token lifetime in seconds. Default access is read-only and the lifetime is 30 days.</p>
 <p>Sending takes <code>--file</code> pointing to a JSON message and <code>--key</code> for idempotency. Replies take <code>--uid</code>, <code>--file</code> containing <code>body_text</code>, and <code>--key</code>. Delete requires the exact <code>--email</code>. Run <code>help</code> for the complete command list.</p>
 <h3>Real onboarding</h3>
-<p>Open <code>/login</code> on your installation after setup. Sign in with your saved operator credentials, then open Inboxes. Your secure session survives navigation and refresh for up to 12 hours.</p>
+<p>Open <code>/login</code> on your installation after setup. Sign in with your administrator username and password locally, or Cloudflare Access in production, then open Inboxes. Your secure session survives navigation and refresh for up to 12 hours.</p>
 <p>1. Create an address on the configured domain. Repeating the same address retrieves the existing inbox.</p>
 <p>2. Issue a mailbox token and save it. Choose MCP, TypeScript, CLI or HTTP examples.</p>
 <p>3. Check real MCP access. Locally, queue a test message through SMTP and read its body through MCP.</p>
 <p>4. Manage existing inboxes, issue replacement tokens, revoke old ones and confirm deletion by typing the email.</p>
-<p>Changing permissions means issuing a new scoped token and revoking the old one. Issuing a new token alone does not revoke other clients. Mailbox credentials and owner credentials are distinct. Owner tokens do not implicitly read all inboxes.</p>
-<p>The <code>/ui/onboarding/</code> route redirects to the real sign-in page. The real page does not accept preview-state switches. The local SMTP test endpoint requires an owner token, targets an existing mailbox and is disabled outside development. In production, send an actual message from your mail client and refresh the inbox instead.</p>
+<p>Changing permissions means issuing a new scoped token and revoking the old one. Issuing a new token alone does not revoke other clients. Mailbox credentials and owner credentials are distinct. Administrator sessions do not implicitly read all inboxes.</p>
+<p>The <code>/ui/onboarding/</code> route redirects to the real sign-in page. The real page does not accept preview-state switches. The local SMTP test endpoint requires an administrator session, targets an existing mailbox and is disabled outside development. In production, send an actual message from your mail client and refresh the inbox instead.</p>
 <h3>Local acceptance commands</h3>
 <p>- <code>make test</code>: Python/security/recovery tests, real upstream mail integration, SDK contract tests, real SDK/CLI/MCP flow.</p>
 <p>- <code>make browser-test</code>: authenticated real browser onboarding with error/retry, send/read and mobile checks. Install Chromium once with <code>npx playwright install chromium</code>.</p>

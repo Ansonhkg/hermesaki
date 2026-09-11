@@ -19,6 +19,7 @@ class Config:
     public_url: str = "http://localhost:19100"
     access_team: str = ""
     access_aud: str = ""
+    admin_emails: list = field(default_factory=list)
     dev_auth: bool = False
     webhook_hosts: list = field(default_factory=list)
     max_attempts: int = 5
@@ -39,6 +40,8 @@ class Config:
                 raise ValueError(
                     "production requires Cloudflare Access team and audience"
                 )
+        if not isinstance(self.admin_emails,list) or any(not isinstance(e,str) or '@' not in e for e in self.admin_emails):
+            raise ValueError('invalid administrator email allowlist')
         if not 1 <= self.max_attempts <= 20:
             raise ValueError("invalid retry limit")
         return self

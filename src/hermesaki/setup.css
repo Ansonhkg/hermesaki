@@ -7,7 +7,7 @@ body{background:var(--paper);color:var(--ink);font-family:system-ui,sans-serif}
 main{max-width:900px;margin:36px auto;padding:0 32px}
 .setup-brand{display:flex;align-items:center;gap:14px;margin-bottom:28px}.setup-brand img{width:72px;height:72px;object-fit:contain}.setup-brand span{font-size:29px;font-weight:700;letter-spacing:-1px;color:var(--ink)}.setup-brand b{color:var(--orange);margin-left:5px}
 h1,h2,h3{font-family:Georgia,serif;font-weight:600;color:var(--ink)}h1{font-size:44px;letter-spacing:-1px;margin:12px 0 18px}h2{font-size:28px}h3{font-size:22px}
-p,small,footer,dt{color:var(--muted)}.eyebrow{color:var(--orange);font-size:13px;margin:0}
+p,small,footer,dt{color:var(--muted)}
 nav{color:var(--orange);border-bottom:1px solid var(--line);margin-bottom:24px}
 section{background:#fffaf2;border:1px solid var(--line);border-radius:8px;padding:28px;margin:20px 0}
 input{background:#fffdf8;border-color:var(--line);border-radius:6px;color:var(--ink)}input[type=checkbox]{accent-color:var(--orange)}

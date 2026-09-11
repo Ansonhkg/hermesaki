@@ -7,8 +7,8 @@ export function mockApi() {
  const plan={id:'fictional-plan',apply_available:true,conflicts:[],actions:[{operation:'create',kind:'Tunnel',hostname:'inbox.example.test'},{operation:'create',kind:'Access',hostname:'hermesaki.example.test'}]};
  return (path:string,method:string,data:any,authorization:string):[number,any]=>{
  if(path==='/v1/setup/status')return [200,{claimed:false}];
- if(path==='/v1/setup/claim')return [200,{}];
- if(path==='/v1/setup/services/credentials')return [200,{email:'hi@example.test',operator_token:'demo-owner',password:'fictional-only'}];
+ if(path==='/v1/setup/claim'||path==='/v1/setup/login')return [200,{session:'demo-owner',claimed:true}];
+ if(path==='/v1/setup/services/credentials')return [200,{email:'hi@example.test',password:'fictional-only'}];
  if(path.startsWith('/v1/setup')){
   if(path.endsWith('/configuration'))state.settings=data;
   if(path.endsWith('/cloudflare')){state.cloudflare_plan=plan;return [200,{plan}];}
@@ -18,7 +18,7 @@ export function mockApi() {
   if(path.endsWith('/dkim/plan'))state.dkim_plan={id:'fictional-dkim',record:'DKIM public key (simulated)'};
   if(path.endsWith('/dkim/apply'))state.dkim_progress={state:'Simulated signing records published'};
   if(path.endsWith('/services/verify'))state.service_verification={ready:true,checks:['DNS','TLS','SMTP','SPF / DKIM / DMARC','Agent permissions'].map(id=>({id,state:'passed',detail:'SIMULATED in local walkthrough; no provider contacted'}))};
-  if(path.endsWith('/complete'))return [200,{complete:true,operator_url:'/',webmail_url:'/ui/onboarding/live.html',authentication:'Demo only. Continue with the fictional operator token demo-owner.'}];
+  if(path.endsWith('/complete'))return [200,{complete:true,operator_url:'/',webmail_url:'/ui/onboarding/live.html',authentication:'Demo only. Sign in with admin and the fictional password local-preview-only.'}];
   return [200,state];
  }
  if(!authorization||authorization==='Bearer invalid')return [401,{error:'invalid_token'}];
