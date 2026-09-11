@@ -15,6 +15,7 @@ class Config:
     management_url: str = "https://mail:443"
     ca_file: str = "/state/tls/ca.pem"
     domain: str = "example.test"
+    webmail_url: str = ""
     public_url: str = "http://localhost:19100"
     access_team: str = ""
     access_aud: str = ""

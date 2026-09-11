@@ -49,7 +49,7 @@ class Runtime:
         apps=[a for a in apps if a.get('domain')==web_hosts(settings)[0]]
         if len(apps)!=1 or not apps[0].get('aud'):raise DeploymentError('operator_access_audience_required')
         c=Config(mode='production',domain=settings['domain'],mail_host='mail.'+settings['domain'],management_url='https://mail.'+settings['domain']+':443',
-                 public_url='https://'+web_hosts(settings)[0],access_team=plan['options']['access_team'],access_aud=apps[0]['aud'])
+                 public_url='https://'+web_hosts(settings)[0],webmail_url='https://'+web_hosts(settings)[1],access_team=plan['options']['access_team'],access_aud=apps[0]['aud'])
         c.validate();private_write(state/'config.json',json.dumps(c.__dict__))
         token=provider.call('GET',account+'/cfd_tunnel/'+plan['tunnel_id']+'/token')['result']
         private_write(self.root/'tunnel-token',token)

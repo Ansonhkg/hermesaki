@@ -527,7 +527,7 @@ class App:
             if origin and origin not in {"http://" + h for h in hosts}:
                 raise Rejected(403, "same_origin_required")
             method, path = env["REQUEST_METHOD"], env.get("PATH_INFO", "/")
-            assets = {"/": ("setup.html", "text/html; charset=utf-8"), "/setup.js": ("setup.js", "application/javascript"), "/setup.css": ("setup.css", "text/css")}
+            assets = {"/setup-mascot.png": ("../../landing/assets/hermesaki-messenger.png", "image/png"), "/": ("setup.html", "text/html; charset=utf-8"), "/setup.js": ("setup.js", "application/javascript"), "/setup.css": ("setup.css", "text/css")}
             if method == "GET" and path in assets:
                 file, content_type = assets[path]
                 body = (Path(__file__).parent / file).read_bytes()

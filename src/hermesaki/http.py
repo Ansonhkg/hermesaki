@@ -78,7 +78,7 @@ class App:
                         ],
                     )
                     return [file.read_bytes()]
-                if path in ("/", "/login", "/inboxes", "/agents", "/activity") and method == "GET":
+                if path in ("/", "/login", "/inboxes", "/agents", "/activity", "/settings") and method == "GET":
                     body = Path(__file__).with_name("operator.html").read_bytes()
                     start(
                         "200 OK",
@@ -170,6 +170,16 @@ class App:
 
     def route(self, a, method, p, d, q, e):
         s = self.s
+        if p[:3] == ["v1", "operator", "configuration"]:
+            s.permit(a, "admin")
+            from . import operator_configuration as configuration
+            if len(p) == 3 and method == "GET":
+                return configuration.read(self.c)
+            if p[3:] == ["plan"] and method == "POST":
+                return configuration.plan(s.store, self.c, d)
+            if p[3:] == ["apply"] and method == "POST":
+                return configuration.apply(s.store, self.c, d)
+            raise Problem(404, "not_found")
         if p == ["v1", "settings"] and method == "GET":
             s.permit(a, "admin")
             return {
