@@ -1,11 +1,18 @@
 --- a/mcpcube.php
 +++ b/mcpcube.php
-@@ -4,7 +4,11 @@
+@@ -4,7 +4,18 @@
  
  // Needed for plugin-only installations; Roundcube's root autoloader already
  // loads this when the plugin was installed with Composer.
 -@include_once __DIR__ . '/vendor/autoload.php';
++$hostIncludePath = get_include_path();
 +$pluginLoader = @include_once __DIR__ . '/vendor/autoload.php';
++// Composer also prepends PEAR include paths. Keep the host's paths first,
++// or SMTP's require_once('PEAR.php') loads a second copy and fatals.
++set_include_path(implode(PATH_SEPARATOR, array_unique(array_merge(
++    explode(PATH_SEPARATOR, $hostIncludePath),
++    explode(PATH_SEPARATOR, get_include_path())
++))));
 +if ($pluginLoader instanceof \Composer\Autoload\ClassLoader) {
 +    $pluginLoader->unregister();
 +    $pluginLoader->register(false);
