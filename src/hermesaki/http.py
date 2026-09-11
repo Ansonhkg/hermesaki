@@ -188,6 +188,9 @@ class App:
 
     def route(self, a, method, p, d, q, e):
         s = self.s
+        if p[:3] == ["v1", "operator", "mcp-connection"]:
+            from .mcp_connection import handle
+            return handle(s.store, self.c, a, method, '/'.join(p[3:]), d)
         if p[:3] == ["v1", "operator", "infrastructure"]:
             s.permit(a, "admin")
             from . import infrastructure
