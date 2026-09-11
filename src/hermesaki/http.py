@@ -170,6 +170,22 @@ class App:
 
     def route(self, a, method, p, d, q, e):
         s = self.s
+        if p[:3] == ["v1", "operator", "infrastructure"]:
+            s.permit(a, "admin")
+            from . import infrastructure
+            from .setup_cloudflare import CloudflareError
+            try:
+                if len(p) == 3 and method == "GET":
+                    return {**infrastructure.inventory(s.store, self.c), "pending_plan": infrastructure.pending(s.store)}
+                if p[3:] == ["connect"] and method == "POST":
+                    return infrastructure.connect(s.store, self.c, d)
+                if p[3:] == ["plan"] and method == "POST":
+                    return infrastructure.plan(s.store, self.c, d)
+                if p[3:] == ["apply"] and method == "POST":
+                    return infrastructure.apply(s.store, self.c, d)
+                raise Problem(404, "not_found")
+            except CloudflareError as error:
+                raise Problem(502, str(error)) from None
         if p[:3] == ["v1", "operator", "configuration"]:
             s.permit(a, "admin")
             from . import operator_configuration as configuration

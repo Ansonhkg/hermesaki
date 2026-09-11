@@ -27,7 +27,7 @@ def read(config):
             'webhook_hosts': config.webhook_hosts, 'delivery_attempt_limit': config.max_attempts,
             'message_size_limit_bytes': config.max_message_bytes,
             'infrastructure': inventory,
-            'infrastructure_edit_policy': 'Domain, mail routing and Access changes require an infrastructure migration. They cannot be applied as a cosmetic setting.'}
+            'infrastructure_edit_policy': 'Existing mail DNS, Tunnel origins and Access policy additions use reviewed Cloudflare plans. Domain replacement and resource deletion require a separate migration.'}
 
 
 def plan(store, config, data):
