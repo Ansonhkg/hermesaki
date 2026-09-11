@@ -20,7 +20,8 @@ export function mockApi() {
  }
  if(!authorization||authorization==='Bearer invalid')return [401,{error:'invalid_token'}];
  if(path==='/v1/operator/configuration')return [200,{domain:'example.test',mode:'development',operator_url:'https://hermesaki.example.test',webmail_url:'https://inbox.example.test',mail_host:'mail',imap_port:993,smtp_port:465,cloudflare_identity_verification:true,configuration_mode:'read_only'}];
- if(path==='/v1/settings')return [200,{domain:'example.test',mode:'development',public_url:'http://127.0.0.1:19195'}];
+ if(path.endsWith('/webmail-credentials'))return authorization==='Bearer demo-owner'?[200,{email:inbox?.email,password:'fictional-webmail-password',webmail_url:'https://inbox.example.test'}]:[403,{error:'scope_denied'}];
+ if(path==='/v1/settings')return [200,{webmail_url:'https://inbox.example.test',domain:'example.test',mode:'development',public_url:'http://127.0.0.1:19195'}];
  if(path==='/v1/inboxes'&&method==='POST'){inbox={id:'atlas',email:data.email,active:1};return [200,inbox];}
  if(path==='/v1/inboxes')return [200,{items:inbox?[inbox]:[],has_more:false}];
  if(path==='/v1/tokens'&&method==='POST'){issued=true;revoked=false;return [200,{id:'demo-token',token:'fictional-mail-token',scopes:['mail.read']}];}

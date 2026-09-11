@@ -19,6 +19,11 @@ def read(config):
         inventory = json.loads((root / 'installation-inventory.json').read_text())
     except FileNotFoundError:
         pass
+    try:
+        current = json.loads((root / 'live-infrastructure-inventory.json').read_text())
+        inventory = {**(inventory or {}), **current}
+    except FileNotFoundError:
+        pass
     return {'domain': config.domain, 'mode': config.mode,
             'operator_url': config.public_url, 'webmail_url': link,
             'mail_host': config.mail_host, 'imap_port': config.mail_port,

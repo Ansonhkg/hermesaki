@@ -65,7 +65,14 @@ def inventory(store,config,cf=None):
         for route in value.get('ingress',[]):
             if route.get('hostname') in hosts:
                 routes.append({'tunnel_id':tid,'hostname':route['hostname'],'service':route['service']})
-    return {'checked_at':time.time(),'source':'Live Cloudflare API','dns':dns,'routes':routes,'policies':policies,'reads_only':True}
+    result = {'checked_at':time.time(),'source':'Live Cloudflare API','dns':dns,'routes':routes,'policies':policies,'reads_only':True}
+    if store is not None:
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', dir=config.state, delete=False) as f:
+            json.dump(result, f)
+            temporary = Path(f.name)
+        temporary.replace(Path(config.state) / 'live-infrastructure-inventory.json')
+    return result
 
 
 def resource(config,cf,kind,identity):

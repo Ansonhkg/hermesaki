@@ -216,7 +216,9 @@ class App:
             raise Problem(404, "not_found")
         if p == ["v1", "settings"] and method == "GET":
             s.permit(a, "admin")
+            from .operator_configuration import read
             return {
+                "webmail_url": read(self.c)["webmail_url"],
                 "domain": self.c.domain,
                 "mode": self.c.mode,
                 "public_url": self.c.public_url,
@@ -242,6 +244,13 @@ class App:
                 },
                 e.get("HTTP_IDEMPOTENCY_KEY"),
             )
+        if len(p) == 4 and p[:2] == ["v1", "inboxes"] and p[3] == "webmail-credentials" and method == "GET":
+            s.permit(a, "admin")
+            account = s.store.inbox(p[2])
+            from .operator_configuration import read
+            s.store.audit(a["id"], "webmail.credentials.read", p[2])
+            return {"email": account["email"], "password": s.store.open(account["secret"], p[2]),
+                    "webmail_url": read(self.c)["webmail_url"]}
         if p == ["v1", "inboxes", "import"] and method == "POST":
             return s.import_inbox(a, d.get("email"), d.get("password"))
         if p == ["v1", "inboxes"] and method == "POST":
