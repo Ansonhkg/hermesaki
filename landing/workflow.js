@@ -1,17 +1,38 @@
-import hljs from './api/highlight.js';
-// A self-contained explanation, never connected to live mail or provider APIs.
-const steps=[
- {name:'Install',actor:'Server owner',title:'Start with your own server.',description:'Clone the public repository. Try the isolated local stack before preparing a separate production installation.',address:'Terminal · your server',screen:'Install Hermesaki',lines:['git clone https://github.com/Ansonhkg/hermesaki.git','cd hermesaki','make dev','make seed'],data:{environment:'local development',mail:'Stalwart',webmail:'Roundcube',outbound:'Captured locally; no external delivery'},guide:'/welcome/setup'},
- {name:'Configure',actor:'Server owner',title:'Connect the domain and infrastructure.',description:'In the setup wizard, enter your domain and server details. Review the DNS, tunnel and access plans before applying them. Production requires working SMTP, reverse DNS and TLS.',address:'hermesaki.example.test/setup',screen:'Installation wizard',lines:['Email domain: example.test','Mail hostname: mail.example.test','Server IP: 203.0.113.10','Review DNS → Review access → Verify services'],data:{domain:'example.test',dns:['A','MX','SPF','DKIM','DMARC'],changes:'Reviewed before applying',verification:'Simulated here; verify on your server'},guide:'/welcome/setup'},
- {name:'Save credentials',actor:'Server owner',title:'Keep the keys from setup.',description:'Save the credentials file when setup issues it. Cloudflare Access signs you into the production dashboard; a mailbox password signs you into webmail.',address:'hermesaki.example.test/setup',screen:'Setup credentials',lines:['hermesaki-mailbox-credentials.json','Save privately before continuing','Cloudflare Access → dashboard','Mailbox password → webmail'],data:{email:'owner@example.test',password:'FICTIONAL_MAILBOX_PASSWORD'},guide:'/welcome/api/authentication'},
- {name:'Create inbox',actor:'Operator',title:'Give Atlas its own email address.',description:'Sign in, open Inboxes and create an address. The mailbox is separate from the access key your agent will use.',address:'hermesaki.example.test/inboxes',screen:'Create an inbox',lines:['Agent address: atlas@example.test','Create inbox →','Inbox created: atlas@example.test'],data:{request:{method:'POST',path:'/v1/inboxes',body:{email:'atlas@example.test'}},response:{id:'inbox_atlas',email:'atlas@example.test',active:1}},guide:'/welcome/api/create-an-agent-inbox'},
- {name:'Connect agent',actor:'Operator → Agent',title:'Issue a key, then connect through MCP.',description:'Under Agent access, select Atlas, choose permissions and set an expiry. Save the key when it is shown. Copy the connection configuration into your agent’s MCP client.',address:'hermesaki.example.test/agents',screen:'Agent access',lines:['Mailbox: atlas@example.test','Permissions: Read and send','Transport: Streamable HTTP','Add Cloudflare service credentials when required'],data:{url:'https://hermesaki.example.test/mcp',headers:{Authorization:'Bearer FICTIONAL_ATLAS_KEY','CF-Access-Client-Id':'FICTIONAL_SERVICE_ID','CF-Access-Client-Secret':'FICTIONAL_SERVICE_SECRET'}},guide:'/welcome/api/connect-with-mcp'},
- {name:'Receive',actor:'Sender → Agent',title:'A message arrives in Atlas’s inbox.',description:'Send a test email to the new address. Your agent can list and read the message through the API or MCP. You can also open it yourself in Roundcube.',address:'inbox.example.test',screen:'Atlas · Inbox',lines:['From: sam@example.test','Subject: Project notes','Can you summarise the project notes?','Read in webmail or through your agent'],data:{request:{method:'GET',path:'/v1/inboxes/inbox_atlas/messages'},example_message:{uid:'1',from:'sam@example.test',subject:'Project notes',body_text:'Can you summarise the project notes?'}},guide:'/welcome/api/api-reference'},
- {name:'Reply',actor:'Agent',title:'Reply with explicit sending access.',description:'An agent with read and write permissions can submit a reply. An idempotency key makes retrying the same request safe. A read-only key cannot send.',address:'hermesaki.example.test/mcp',screen:'Reply to Sam',lines:['To: sam@example.test','Re: Project notes','Here is the summary you asked for…','Submit reply → queued'],data:{request:{method:'POST',path:'/v1/inboxes/inbox_atlas/messages/1/reply',headers:{'Idempotency-Key':'atlas-reply-001'},body:{body_text:'Here is the summary you asked for…'}},example_result:{state:'queued'}},guide:'/welcome/api/api-reference'},
- {name:'Verify & manage',actor:'Operator → Recipient',title:'Check the result, then keep control.',description:'Follow mail submission in Activity and confirm receipt in the recipient’s inbox. SMTP acceptance alone does not prove delivery. Manage keys, webmail and supported infrastructure settings from the dashboard.',address:'hermesaki.example.test/activity?tab=jobs',screen:'Activity · Mail delivery',lines:['Mail submission: submitted to SMTP','Recipient inbox: confirm receipt separately','Agent access: expire or revoke keys','Settings: review configuration changes'],data:{mail_job:{state:'submitted',meaning:'SMTP accepted the message'},recipient_receipt:'Verify independently',webhook_attempts:'Tracked separately from mail submission'},guide:'/welcome/api/api-reference'}
+// Illustrative progress only. This preview never runs setup or contacts providers.
+const steps = [
+  {name:'Tell your agent', title:'An email address. A few details.', description:'Paste the setup prompt into your agent. It asks for your domain, the address you want and access to your server. It reuses anything you have already shared.', screen:'Your agent checks what is ready', tasks:[['Domain and email address','Needs your input'],['Server and account access','Checking'],['Existing websites and mail','Next']], request:'Choose your address and share access.', help:'For example: “Create atlas@example.com.” Open Cloudflare and your server provider in the connected browser, sign in, and share the tabs with your agent.'},
+  {name:'Let it set up', title:'Your agent does the setup.', description:'Your agent installs the mail services, connects the domain and configures protection. Follow its progress while it handles the technical steps.', screen:'Your agent is configuring email', tasks:[['Server requirements checked','Done'],['Email and protection','In progress'],['Mailbox and agent connection','Next']], request:'Step in when a decision needs you.', help:'Your agent asks if it needs sign-in verification, approval for a purchase or permission to change existing mail routing. Routine configuration stays with the agent.'},
+  {name:'Start using email', title:'A working inbox, ready for you.', description:'Your agent tests webmail and its own connection, checks delivery in both directions, and gives you the links and securely saved credentials.', screen:'Your agent verifies the result', tasks:[['Webmail and agent connection','Checked'],['Sending and receiving','Awaiting confirmation'],['Access details and backup instructions','Next']], request:'Confirm the test email and reply.', help:'Open your existing inbox and check Spam or Junk too. You can reply yourself, or authorize your agent to use a shared email tab. Setup finishes after the checks pass.'}
 ];
-const root=document.querySelector('#workflow-demo');let current=0;
-const $=s=>root.querySelector(s);
-for(const [index,step]of steps.entries()){const button=document.createElement('button');button.type='button';button.textContent=`${index+1}. ${step.name}`;button.onclick=()=>{current=index;render()};$('.workflow-steps').append(button)}
-function render(){const step=steps[current];$('[data-workflow-address]').textContent=step.address;$('[data-workflow-actor]').textContent=step.actor;$('[data-workflow-title]').textContent=step.title;$('[data-workflow-description]').textContent=step.description;$('[data-workflow-guide]').href=step.guide;$('[data-workflow-screen-title]').textContent=step.screen;const screen=$('[data-workflow-screen]');screen.replaceChildren();for(const line of step.lines){const p=document.createElement('p');p.textContent=line;screen.append(p)}const code=$('[data-workflow-data]');code.className='hljs language-json';code.innerHTML=hljs.highlight(JSON.stringify(step.data,null,2),{language:'json',ignoreIllegals:true}).value;$('[data-workflow-progress]').textContent=`Step ${current+1} of ${steps.length}`;$('[data-workflow-prev]').disabled=current===0;$('[data-workflow-next]').disabled=current===steps.length-1;[...$('.workflow-steps').children].forEach((button,index)=>{button.setAttribute('aria-current',index===current?'step':'false')})}
-$('[data-workflow-prev]').onclick=()=>{if(current>0){current--;render()}};$('[data-workflow-next]').onclick=()=>{if(current<steps.length-1){current++;render()}};render();
+const root = document.querySelector('#workflow-demo');
+let current = 0;
+const $ = selector => root.querySelector(selector);
+for (const [index, step] of steps.entries()) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.textContent = step.name;
+  button.onclick = () => { current = index; render(); };
+  $('.workflow-steps').append(button);
+}
+function render() {
+  const step = steps[current];
+  $('[data-workflow-title]').textContent = step.title;
+  $('[data-workflow-description]').textContent = step.description;
+  $('[data-workflow-screen-title]').textContent = step.screen;
+  $('[data-workflow-request]').textContent = step.request;
+  $('[data-workflow-help]').textContent = step.help;
+  const screen = $('[data-workflow-screen]'); screen.replaceChildren();
+  for (const [label, state] of step.tasks) {
+    const row = document.createElement('div'); row.className = 'agent-progress-row';
+    const name = document.createElement('span'); name.textContent = label;
+    const badge = document.createElement('span'); badge.className = 'agent-progress-state'; badge.textContent = state;
+    if (['Done','Checked'].includes(state)) badge.classList.add('complete');
+    row.append(name, badge); screen.append(row);
+  }
+  $('[data-workflow-progress]').textContent = `Preview ${current + 1} of ${steps.length}`;
+  $('[data-workflow-prev]').disabled = current === 0;
+  $('[data-workflow-next]').disabled = current === steps.length - 1;
+  [...$('.workflow-steps').children].forEach((button,index) => button.setAttribute('aria-current', index === current ? 'step' : 'false'));
+}
+$('[data-workflow-prev]').onclick = () => { if (current > 0) { current--; render(); } };
+$('[data-workflow-next]').onclick = () => { if (current < steps.length - 1) { current++; render(); } };
+render();

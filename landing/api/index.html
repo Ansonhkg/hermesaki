@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API documentation · Hermesaki</title><link rel="stylesheet" href="/ui/api/style.css"><script src="/ui/api/docs.js" defer></script></head><body><header><a href="/">Hermesaki</a><nav><a href="/ui/onboarding/live.html">Agent inboxes</a><a href="/docs/api-reference">API reference</a><a href="/docs/typescript-sdk">SDK & CLI</a></nav></header><main><h1>Build with your inbox.</h1><p>Read messages, connect an agent, and send with explicit permissions.</p><p>API base: <code id="base">Your installation origin</code> · MCP: <code id="mcp">/mcp</code></p><p>These examples do not execute requests. Replace placeholder inbox IDs and load credentials from your secret manager.</p><section id="reference"><h2>API and authentication</h2>
 <p>Mailbox API endpoints and <code>/mcp</code> require a scoped <code>Authorization: Bearer &lt;token&gt;</code>. Administrator endpoints use an HttpOnly browser session: username/password locally, or an authorized Cloudflare Access identity in production. Operator bearer tokens are retired. In production, requests must also pass Cloudflare Access. Hermesaki validates the Access JWT issuer, audience and signature. A Cloudflare service token is a separate credential and does not replace the mailbox bearer token.</p>
-<p>Scopes are <code>admin</code>, <code>mail.read</code>, <code>mail.write</code> and <code>mail.delete</code>. Admin tokens manage inboxes and issue mailbox tokens; they do not implicitly read every mailbox. A mailbox token is bound to exactly one inbox. Create a token with only <code>mail.read</code> for agents that should inspect email. Token hashes are stored, and plaintext is returned only when issued.</p>
-<p>The operator dashboard uses a secure browser session after signing in. Sessions last up to 12 hours, survive refreshes, and end on sign-out or operator-key revocation. API and agent clients continue to use bearer tokens.</p><h3>Routes</h3>
+<p>Scopes are <code>admin</code>, <code>mail.read</code>, <code>mail.write</code> and <code>mail.delete</code>. Administrator sessions manage inboxes and issue mailbox tokens; they do not implicitly read every mailbox. A mailbox token is bound to exactly one inbox. Create a token with only <code>mail.read</code> for agents that should inspect email. Token hashes are stored, and plaintext is returned only when issued.</p>
+<p>The operator dashboard uses a secure browser session after signing in. Sessions last up to 12 hours, survive refreshes, and end on sign-out or administrator password reset. In production, requests also require the same authorized Cloudflare identity. Mailbox API and agent clients use scoped bearer tokens.</p><h3>Routes</h3>
 <div class="table"><table><thead><tr><th>Method and route</th><th>Permission</th><th>Result</th></tr></thead><tbody>
 <tr><td><code>GET /v1/settings</code></td><td>admin</td><td>Configured domain, mode and public API URL</td></tr>
 <tr><td><code>POST /v1/inboxes/{id}/test-message</code></td><td>admin, development only</td><td>Queue a real local SMTP fixture; requires <code>Idempotency-Key</code></td></tr>
@@ -13,6 +13,7 @@
 <tr><td><code>GET /v1/inboxes/{id}/folders</code></td><td>mail.read</td><td>IMAP folder descriptors</td></tr>
 <tr><td><code>GET /v1/inboxes/{id}/messages</code></td><td>mail.read</td><td>Latest messages; <code>folder</code>, <code>query</code>, <code>limit</code> up to 100</td></tr>
 <tr><td><code>GET /v1/inboxes/{id}/messages/{uid}</code></td><td>mail.read</td><td>Plain text and base64 attachments</td></tr>
+<tr><td><code>GET /v1/inboxes/{id}/jobs/{job_id}</code></td><td>mail.write</td><td>Mailbox-scoped send status, attempts, error and polling guidance</td></tr>
 <tr><td><code>POST /v1/inboxes/{id}/messages</code></td><td>mail.write</td><td>Queue <code>{to:[], subject, body_text, attachments:[]}</code></td></tr>
 <tr><td><code>POST /v1/inboxes/{id}/messages/{uid}/reply</code></td><td>mail.read + mail.write</td><td>Queue <code>{body_text}</code>, preserving thread headers</td></tr>
 <tr><td><code>POST /v1/inboxes/{id}/messages/{uid}/confirmation</code></td><td>mail.delete</td><td>Issue a 60-second, one-use deletion confirmation</td></tr>
@@ -26,15 +27,64 @@
 </tbody></table></div>
 <p>Send and reply requests require <code>Idempotency-Key</code>. Retrying the same key and body returns the same job. Changing the body under that key returns 409. Draft sends use a stable key derived from the draft ID. Approval permits one queued reply, not an autonomous email campaign.</p>
 <p>A <code>submitted</code> job means the SMTP server accepted it, not that the recipient read it or that a remote server delivered it. Unknown outcomes are <code>uncertain</code> and require investigation. They are not retried automatically. Queued work remains encrypted across restarts.</p>
-<h3>Local example</h3>
-<div class="example"><button type="button">Copy</button><pre><code>export HERMESAKI_TOKEN=&quot;$(cat .runtime/product/alice-token)&quot;
-curl http://localhost:19100/mcp \
-  -H &quot;Authorization: Bearer $HERMESAKI_TOKEN&quot; \
-  -H &#x27;Content-Type: application/json&#x27; \
-  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;tools/list&quot;,&quot;params&quot;:{}}&#x27;</code></pre></div>
-<p>For a remote MCP client, select Streamable HTTP, use <code>/mcp</code>, and supply the bearer token in its secret configuration. In production also configure <code>CF-Access-Client-Id</code> and <code>CF-Access-Client-Secret</code> for an allowed Access service token, or an authenticated Access session. Never put these values in a URL or repository.</p>
-<p>The server is stateless MCP JSON-over-HTTP, protocol <code>2025-03-26</code>, with no server-initiated notifications. Tools include folder listing, search, reading, attachments, sending, replying and confirmed deletion. Unsupported methods fail explicitly. Mail text is untrusted data, not agent instructions.</p>
-<p>The latest-message API currently returns a bounded recent window, not an archive-wide cursor. Admin history is paginated. Use IMAP/Roundcube to browse older mailbox history.</p>
+<h3>Connect with MCP</h3>
+<div data-mcp-guide></div>
+<h3>Cloudflare credentials</h3>
+<div class="docs-setup-guide">
+<p>Get the Cloudflare Client ID and Client Secret, then make them available to the computer running your agent. These are needed when Cloudflare Access protects your Hermesaki MCP endpoint.</p>
+<p>Your agent can do the browser steps with your signed-in Cloudflare tab. You handle sign-in and any account approvals. Already saved a valid service token? Reuse its private saved credentials instead of creating another.</p>
+
+<h2>Create the service token</h2>
+<ol><li>In <a href="https://dash.cloudflare.com/">Cloudflare</a>, open <strong>Zero Trust → Access controls → Service credentials → Service Tokens</strong>.</li><li>Select <strong>Create Service Token</strong>, enter a recognizable name and choose an expiry.</li><li>Select <strong>Generate token</strong>. Save both the <strong>Client ID</strong> and <strong>Client Secret</strong> in your secret manager. The secret is displayed only once; if lost, rotate it or create a replacement and update your clients.</li></ol>
+<details class="docs-screenshot" open><summary>Screenshot: create a service token</summary><figure><a href="/ui/assets/cloudflare/05-service-token.png" target="_blank" rel="noopener"><img src="/ui/assets/cloudflare/05-service-token.png" alt="Cloudflare service token form with a fictional Hermesaki agent name, duration selector and Generate token button" width="1040" height="1084"></a><figcaption>Creation form only. The generated-secret screen is not included. Click the image to view it at full size.</figcaption></figure></details>
+
+<h2>Authorize it for your MCP hostname</h2>
+<p>Open the Access application covering your Hermesaki API hostname. Add a policy with <strong>Action: Service Auth</strong> and <strong>Include: Service Token</strong>, select your specific token, and save the policy on that application. Keep the owner's email Allow policy for browser sign-in. Creating a token alone does not grant access. <a href="https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/">Cloudflare service-token reference ↗</a></p>
+<details class="docs-screenshot"><summary>Screenshot: authorize the agent token</summary><figure><a href="/ui/assets/cloudflare/04-agent-policy.png" target="_blank" rel="noopener"><img src="/ui/assets/cloudflare/04-agent-policy.png" alt="Cloudflare policy with Service Auth action and Service Token selector; token selection is blank" width="1025" height="2299" loading="lazy"></a><figcaption>Select the token you created. This captured form leaves it unselected.</figcaption></figure></details>
+<details class="docs-screenshot"><summary>Screenshots: application and owner access</summary><p>If setup has not created your Access application yet, configure its hostname and an owner email policy first. These views show the relevant fields; unrelated switches show form defaults.</p><figure><a href="/ui/assets/cloudflare/02-application-settings.png" target="_blank" rel="noopener"><img src="/ui/assets/cloudflare/02-application-settings.png" alt="Self-hosted Access application with blank public hostname and policy fields" width="1025" height="2299" loading="lazy"></a><figcaption>Application hostname and attached policies.</figcaption></figure><figure><a href="/ui/assets/cloudflare/03-owner-policy.png" target="_blank" rel="noopener"><img src="/ui/assets/cloudflare/03-owner-policy.png" alt="Owner policy with Allow action and an empty Emails selector" width="1025" height="2299" loading="lazy"></a><figcaption>Owner browser access uses an email Allow policy.</figcaption></figure></details>
+<p class="docs-caption">Actual dashboard captures from 11 September 2026. Private account details are outside the captured views; values are blank or illustrative. These are configuration examples, not proof of a completed setup.</p>
+
+<h2>Match the values to the variables</h2>
+<div class="table"><table><thead><tr><th>Environment variable</th><th>Where the value comes from</th></tr></thead><tbody><tr><td><code>CF_ACCESS_CLIENT_ID</code></td><td>Cloudflare service token → Client ID</td></tr><tr><td><code>CF_ACCESS_CLIENT_SECRET</code></td><td>Cloudflare service token → Client Secret</td></tr><tr><td><code>HERMESAKI_MAILBOX_KEY</code></td><td>Hermesaki → Agent access → the selected mailbox's scoped access key</td></tr></tbody></table></div>
+<p>The two Cloudflare variables become the <code>CF-Access-Client-Id</code> and <code>CF-Access-Client-Secret</code> request headers. The mailbox key becomes <code>Authorization: Bearer …</code>. Your Cloudflare DNS API token, mailbox password and browser session are different credentials.</p>
+
+<h2>Load them on your computer</h2>
+<p>Run the block for your shell locally. Paste the values at the prompts; secret input is hidden and the pasted values do not become shell commands in history. These commands set variables for the current terminal and programs launched from it.</p>
+<details class="docs-env" open><summary>macOS / Linux — Bash or Zsh</summary>
+<pre><code data-language="bash" data-label="Bash / Zsh">printf 'Cloudflare Client ID: '
+IFS= read -r CF_ACCESS_CLIENT_ID
+printf 'Cloudflare Client Secret (hidden): '
+IFS= read -rs CF_ACCESS_CLIENT_SECRET
+printf '\nMailbox access key (hidden): '
+IFS= read -rs HERMESAKI_MAILBOX_KEY
+printf '\n'
+export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET HERMESAKI_MAILBOX_KEY</code></pre>
+<p>Start <code>grok</code>, <code>codex</code>, <code>claude</code> or <code>opencode</code> from this same terminal after adding its MCP configuration.</p>
+</details>
+<details class="docs-env"><summary>Windows — PowerShell</summary>
+<pre><code data-language="powershell" data-label="PowerShell">$env:CF_ACCESS_CLIENT_ID = Read-Host 'Cloudflare Client ID'
+$secret = Read-Host 'Cloudflare Client Secret' -AsSecureString
+$env:CF_ACCESS_CLIENT_SECRET = [System.Net.NetworkCredential]::new('', $secret).Password
+$mailboxKey = Read-Host 'Mailbox access key' -AsSecureString
+$env:HERMESAKI_MAILBOX_KEY = [System.Net.NetworkCredential]::new('', $mailboxKey).Password
+Remove-Variable secret, mailboxKey</code></pre>
+<p>Launch your CLI agent from this PowerShell window. Closing it removes these session variables.</p>
+</details>
+<details class="docs-env"><summary>Keep the setup available after restarting</summary>
+<p>Keep the credentials in your secret manager. Ask your agent to configure a private launcher or your app's supported secret settings so the variables load whenever that app starts. A random <code>.env</code> file is not automatically loaded by every MCP client.</p>
+<p>For Windows user-level environment variables, run the following after entering the values above. This stores them in your Windows user environment as plaintext; use your secret manager instead if available. Restart the agent app afterward.</p>
+<pre><code data-language="powershell" data-label="PowerShell">[Environment]::SetEnvironmentVariable('CF_ACCESS_CLIENT_ID', $env:CF_ACCESS_CLIENT_ID, 'User')
+[Environment]::SetEnvironmentVariable('CF_ACCESS_CLIENT_SECRET', $env:CF_ACCESS_CLIENT_SECRET, 'User')
+[Environment]::SetEnvironmentVariable('HERMESAKI_MAILBOX_KEY', $env:HERMESAKI_MAILBOX_KEY, 'User')</code></pre>
+<p>For macOS/Linux, a private shell launcher can load these values from a secret manager or an owner-readable file outside your repository before starting the agent. Have your agent preserve existing configuration and handle shell quoting. Do not paste secrets into a setup prompt or commit them with your project.</p>
+</details>
+
+<h2>Connect your app and check it</h2>
+<p>Open the <a href="/welcome/api/connect-with-mcp" data-doc-page="connect-with-mcp">MCP client guide</a>, select your app and merge its example configuration. Environment-reference syntax differs between clients.</p>
+<p>Desktop apps launched from the Dock or Start menu may not inherit terminal variables. Fully quit and relaunch through the configured launcher, or use the app's supported private header settings. Refresh its MCP connection, then ask it to call <code>list_folders</code> with your exact inbox ID. Check that it returns folders without sending mail.</p>
+<p>A Cloudflare login page or 403 usually means the service credentials or policy need checking. A Hermesaki 401 usually means the mailbox key is missing or invalid. Check whether variables are present without printing their values; do not disable Access to make the connection work.</p>
+</div>
+
 <h3>Adopt an existing mailbox</h3>
 <p>An operator can call <code>POST /v1/inboxes/import</code> with <code>email</code> and <code>password</code>. The service verifies the existing mailbox through TLS-protected IMAP before saving its credential encrypted. It does not provision, reset the password, or alter mail. Repeating an import preserves the inbox ID and its existing scoped tokens. A failed credential check leaves the prior stored credential unchanged. Use this after restoring an existing Stalwart installation; keep passwords out of logs and command arguments.</p></section><section id="clients"><h2>TypeScript SDK and CLI</h2>
 <p>Requires Node.js 22+. From this private repository, run <code>npm ci --ignore-scripts &amp;&amp; npm run build</code>.</p>

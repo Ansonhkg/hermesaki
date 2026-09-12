@@ -1,0 +1,43 @@
+Help me set up Hermesaki so I can use email on my own domain and give my AI agent its own inbox. Carry out the setup using the tools available to you, and guide me through any steps that need my account access.
+
+Start here:
+- Repository: https://github.com/Ansonhkg/hermesaki
+- Installation guide: https://github.com/Ansonhkg/hermesaki/blob/main/docs/setup.md
+- API and MCP documentation: https://github.com/Ansonhkg/hermesaki/blob/main/docs/api.md
+
+Read the current installation guide before starting and follow the supported setup wizard or its API. Use ordinary Git or another available download method; no particular agent or GitHub CLI is required. If the repository cannot be accessed, tell me what failed instead of substituting an unofficial download.
+
+First, establish what I already have. Ask only for information you cannot find in the context or access I have provided:
+- The domain I want to use and the first email address to create.
+- My Linux server and how to connect to it. If I do not have one, help me choose a suitable server and explain the cost before I purchase it.
+- Access to the Cloudflare account managing my domain and my server provider account.
+- The email identity I want to use to sign in to the dashboard.
+- An existing inbox I control on another domain for sending and receiving test messages. Ask permission to send the test emails there.
+
+If I am using Codex with browser or computer-use access enabled, first inspect the provider tabs I have explicitly shared with you. I can open Cloudflare and my server provider (for example, Hetzner) and sign in directly in the browser you can control. Use those authenticated sessions for authorized setup tasks rather than making me repeat every provider action manually. Confirm that you can actually access the correct account and server; a tab open in an unconnected browser is not shared access. Prefer existing SSH or provider integrations when suitable. Ask me to handle sign-in, two-factor authentication, CAPTCHA or account approvals when required. Never extract browser cookies or bypass access controls. If browser control is unavailable, give me the specific provider steps or use an available API.
+
+Keep updates focused on what you are doing and when you need me: “Checking your server”, “Configuring email”, “Testing delivery”, or “Needs your input”. Reuse information I have already supplied. Ask for decisions and missing access, not for routine technical work you can perform.
+
+Explain account-access steps in plain language. Use a secure credential store or protected local files; do not ask me to paste secrets into the chat when a secure option is available. If you lack a required tool or session, tell me the exact step I need to perform and continue with the work you can do.
+
+Inspect my server and existing DNS before changing anything. Check the supported operating system, disk space, memory, Docker Compose, Python requirements, mail ports and reverse DNS. Verify SSH host identity; never bypass a changed-host-key warning. Preserve existing websites, databases, mailboxes and firewall rules. If my domain already receives email elsewhere, explain the migration needed before changing its mail routing. Ask before purchases, destructive changes or terms acceptance that I have not authorized.
+
+Install Hermesaki in its own directory with persistent storage, using the versions specified by the current guide. Keep a private record so setup can resume after an interruption. Start the setup wizard on a private loopback address and use an SSH tunnel when accessing it remotely. Create and securely save my setup administrator username and password. If setup has already been claimed, resume it rather than starting over. Use the production setup flow for real email; the local demo captures outgoing mail and cannot prove public delivery.
+
+Configure my domain, mail server, DNS, certificates and Cloudflare through the supported setup flow. Review the generated changes, preserve compatible existing resources and apply the exact current plans. Configure MX, SPF, DKIM and DMARC, check inbound and outbound SMTP connectivity, and set the appropriate reverse DNS through my server provider. Do not work around provider restrictions or mark failed checks as passed.
+
+Protect the dashboard and webmail with Cloudflare Access before exposing them. Cloudflare's proxy or bot protection alone is not a login system. Use my Cloudflare identity for production dashboard sign-in. Keep direct web origins and management ports private. Issue only the Cloudflare permissions needed for setup and ongoing certificate renewal; retain the renewal credential securely.
+
+Create my mailbox and save its password before completing setup. Explain the separate credentials clearly: my Cloudflare identity opens the dashboard, my mailbox address and password open Roundcube webmail, and a mailbox access key gives an agent its selected API/MCP permissions. For MCP behind Cloudflare Access, also configure the separate service client ID and secret with access to the operator endpoint. Keep the owner's access intact and avoid broad bypass policies.
+
+Verify real use, not just running containers:
+1. Open the dashboard, check sign-in, refresh and sign-out, and verify that unauthorized visitors cannot access it.
+2. Run the setup's external network check from a separate publicly addressed machine. If none is available, explain the requirement before provisioning one.
+3. Send a uniquely identified test to my authorized external inbox, confirm it arrived, inspect the actual SPF/DKIM/DMARC results, and confirm its reply arrives in my new mailbox. Remind me to check Spam or Junk. A queued message is not proof of delivery.
+4. Sign in to Roundcube with the mailbox password, read the received message and send a reply. Confirm the reply arrived externally.
+5. Connect through the real MCP endpoint, read the test message and, with sending permission, send or reply to my authorized test inbox. Confirm receipt. Verify that a read-only key cannot send and an invalid key is rejected. Revoke temporary test keys afterward.
+6. Verify certificate renewal and the certificate served by the mail server. Confirm existing services still work.
+
+Use the wizard's actual verification results to finish setup, refreshing any expired checks. Save mailbox credentials before completion, retain recovery state, and close temporary setup access when finished. If a check fails, diagnose it and repeat that check after fixing it. Report anything you could not verify honestly; do not weaken authentication or fabricate results to finish.
+
+Finish with my dashboard URL, webmail URL, mailbox address and a ready-to-use MCP configuration saved securely. Tell me where my credentials are stored, how to start or stop the installation, and how to back up and recover its data. Give me a short list of what passed and anything still requiring my attention. Keep private data out of screenshots and shared documentation. Continue until the authorized setup is complete or explain the precise action you need from me.

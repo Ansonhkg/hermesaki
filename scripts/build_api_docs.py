@@ -21,6 +21,8 @@ def render(text):
             if not table:
                 out.append('<div class="table"><table><thead><tr>'+''.join('<th>'+inline(c.strip())+'</th>' for c in cells)+'</tr></thead><tbody>');table=True
             else:out.append('<tr>'+''.join('<td>'+inline(c.strip())+'</td>' for c in cells)+'</tr>')
+        elif line == '<!-- cloudflare-credentials-guide -->':out.append((ROOT/'landing/api/cloudflare-credentials.html').read_text())
+        elif line == '<!-- mcp-client-guide -->':out.append('<div data-mcp-guide></div>')
         elif line.startswith('#'):
             level=min(len(line)-len(line.lstrip('#'))+1,4);out.append(f'<h{level}>'+inline(line.lstrip('# ').strip())+f'</h{level}>')
         elif line:out.append('<p>'+inline(line)+'</p>')
