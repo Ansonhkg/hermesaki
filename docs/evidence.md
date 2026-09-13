@@ -54,7 +54,7 @@ This completes the local developer milestone, not public-production acceptance. 
 
 ## First-run delivery, 2026-09-09
 
-Parogres automatically accepted the clean Linux first-boot criterion and one-time authenticated owner-bootstrap criterion. The first-boot run used a fresh disposable Debian/Python container, no mounted data, no external network, and the documented `make setup`. Chromium rendered actual responses from its loopback listener through the test relay. The owner proof used real HTTP, including anonymous/reused credentials, takeover attempts and restart. Neither result represents full product completion.
+The first-boot run used a fresh disposable Debian/Python container, no mounted data, no external network, and the documented `make setup`. Chromium rendered actual responses from its loopback listener through the test relay. The owner proof used real HTTP, including anonymous/reused credentials, takeover attempts and restart. Neither result represents full product completion.
 
 Local setup verification commands:
 
@@ -64,7 +64,7 @@ Local setup verification commands:
 - `make setup-clean-test`: clean Linux startup plus actual first-run screenshot.
 - `make setup-provider-browser-test`: matching provider forms passed against an explicitly injected upstream fixture. This does not prove live Cloudflare compatibility or deployment.
 
-Artifacts are under `.runtime/evidence/`, outside Git. The automatic verifier accepted the clean startup and owner-bootstrap screenshot IDs recorded in Parogres. No other finish-line criterion is claimed complete.
+Artifacts are under `.runtime/evidence/`, outside Git.
 
 Outstanding: live scoped provider credentials, full private mail-service/connector deployment through the wizard, public DNS/TLS/SMTP verification, both complete clean-install journeys, restart/restore and authorized migration rehearsals. A Cloudflare account/user token-permission lookup through the available plugin returned unauthorized; resource-management access does not supply a credential to the reusable installer.
 
@@ -73,7 +73,6 @@ Outstanding: live scoped provider credentials, full private mail-service/connect
 - Standalone owner bootstrap, shared forms/API, provider credential replacement, exact-plan Cloudflare apply, persisted checkpoints, isolated subdomain zone resolution and actionable conflicts implemented.
 - Local verification: 35 Python unit tests; first-run browser and provider-form browser suites pass. Provider-form failure tests use an explicitly labelled upstream fixture.
 - Live verification: real Cloudflare isolated resources were created; an acknowledged tunnel checkpoint was interrupted and resumed; repeat planning returned reuse; a deliberate test-only DNS conflict halted apply. All pre-existing domain records compared unchanged before/after. Private raw records and screenshots remain outside Git under `.runtime/evidence`.
-- Parogres automatically accepted resource preservation and structured setup-state criteria after screenshot review. Together with first boot and owner bootstrap, four of thirteen criteria are accepted. Initial insufficient screenshot submissions are retained in its journal.
 - Read-only host preflight now reports Docker/Compose, platform, public-IP classification, port binding, external SMTP TCP connectivity and PTR. External inbound verification is explicitly pending. Unit probes of resolved/failure states are simulations; actual host checks were also performed separately.
 - Full wizard service deployment, complete clean-install journeys, external mail, certificate renewal, edge authorization, completion handover and recovery/migration acceptance are still pending. Do not treat this checkpoint as a completed self-hosted installer.
 
@@ -85,13 +84,13 @@ Outstanding: live scoped provider credentials, full private mail-service/connect
 - `.venv/bin/python scripts/verify_setup_runtime.py`: real isolated Stalwart bootstrap, first-mailbox TLS login and folders, public DKIM export, certificate replacement verified on the wire, repeated sync and repeated deployment passed. No published ports; runtime network has no external delivery.
 - Separate real DNS-01 certificate issuance and ACME renewal dry-run succeeded on an isolated authorized subdomain. The actual private deployment identity and certificate state remain outside Git. This does not prove a full public clean installation.
 - Private artifacts: `.runtime/evidence/setup-runtime-final.log`, `setup-service-plan-fixture.png`, `setup-build.log`, `acme-public-check.log`.
-- Full public installation, completed setup handover and remaining approved Parogres criteria are still pending. No percentage was assigned from these checks.
+- Full public installation and completed setup handover are still pending.
 
 ### Live web-hostname regression
 
 Live HTTPS verification exposed that nested web names on test subdomains were outside Cloudflare's default certificate coverage. New setup flows now persist flat, certificate-covered web names; existing saved plans retain their names. A real isolated web plan successfully created the corresponding protected endpoints, and the service planner verified the Access redirect. The real browser/HTTP test rejected a deliberately invalid service-plan confirmation. Unit coverage is now 47 tests.
 
-The plan screenshot was submitted to Parogres. The verifier requested stronger before/after and successful authorized-execution evidence, so it did not advance acceptance. That verdict is retained; no owner bypass or percentage change was performed. Full public clean-install verification needs a separate available mail endpoint because the existing production SMTP address is occupied.
+Full public clean-install verification needs a separate available mail endpoint because the existing production SMTP address is occupied.
 
 ### Same-host reinstall, 2026-09-10
 
@@ -128,8 +127,7 @@ pass. Network results expire and outbound SMTP is rechecked during verification.
 Ran the helper from an existing independent VPS against the production SMTP
 address. Public SMTP and the mail hostname's forward/reverse DNS passed. Outbound
 SMTP from the mail VPS also passed. Captured results and explicitly simulated
-failure responses were submitted to Parogres for independent review; submission
-is not acceptance.
+failure responses are saved separately in the private evidence directory.
 
 The remote-agent verification attempt found a real permission blocker: the
 current setup credential can list Access service tokens but creation was denied.
@@ -164,6 +162,5 @@ real inbox onboarding and shows service health.
 Validation: 84 unit tests pass, and the setup browser regression passes. Changes
 were pushed to the private repository with no CI. Actual screenshots, private
 HTTP transcripts and received originals remain under `.runtime/evidence`.
-Parogres has accepted the plan/apply and operator-handover evidence. The final
-journey and historical recovery evidence remain subject to its verifier/owner
-review; executed tests alone do not establish 100% acceptance.
+These results cover the journeys described above; they do not establish that
+every release acceptance check has passed.
